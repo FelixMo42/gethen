@@ -1,0 +1,11 @@
+remove comment
+[/\*].*\n
+
+untab
+[ \t]*
+
+line properly
+\n\n -> \n
+
+":" -> " : "
+"\? :" -> " ?:"
