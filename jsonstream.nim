@@ -3,6 +3,7 @@ import strutils
 import parseutils
 import json
 import cfg
+import loging
 
 type
   BaseProtocolError* = object of ValueError
@@ -16,8 +17,7 @@ proc skipWhitespace(x: string, pos: int): int =
 
 proc sendFrame*(s: Stream, frame: string) =
     when debugCommunication:
-        stderr.write(frame)
-        stderr.write("\n")
+        log frame
     s.write "Content-Length: " & $frame.len & "\r\n\r\n" & frame
     s.flush()
 
@@ -51,8 +51,7 @@ proc readFrame*(s: Stream): TaintedString =
             if contentLen != -1:
                 when debugCommunication:
                     let msg = s.readStr(contentLen)
-                    stderr.write(msg)
-                    stderr.write("\n")
+                    log msg
                     return msg
                 else:
                     return s.readStr(contentLen)
