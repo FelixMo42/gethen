@@ -1,5 +1,5 @@
 import loging
 
-# const debugLogLevel* = Debug
+const debugLogLevel* = Debug
 
-const debugCommunication* = true
+const debugCommunication* = false
