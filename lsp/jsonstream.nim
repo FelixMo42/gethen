@@ -2,12 +2,11 @@ import streams
 import strutils
 import parseutils
 import json
-import cfg
 
 type
-  BaseProtocolError* = object of ValueError
-  MalformedFrame* = object of BaseProtocolError
-  UnsupportedEncoding* = object of BaseProtocolError
+    BaseProtocolError* = object of ValueError
+    MalformedFrame* = object of BaseProtocolError
+    UnsupportedEncoding* = object of BaseProtocolError
 
 proc skipWhitespace(x: string, pos: int): int =
     result = pos
@@ -15,8 +14,6 @@ proc skipWhitespace(x: string, pos: int): int =
         inc result
 
 proc sendFrame*(s: Stream, frame: string) =
-    when debugCommunication:
-        log DEBUG, frame
     s.write "Content-Length: " & $frame.len & "\r\n\r\n" & frame
     s.flush()
 
@@ -48,14 +45,11 @@ proc readFrame*(s: Stream): TaintedString =
             continue
         else:
             if contentLen != -1:
-                when debugCommunication:
-                    let msg = s.readStr(contentLen)
-                    log DEBUG, msg
-                    return msg
-                else:
-                    return s.readStr(contentLen)
+                return s.readStr(contentLen)
             else:
                 raise newException(MalformedFrame, "missing Content-Length header")
+
+
 
 proc sendJson*(s: Stream, data: JsonNode) =
     var frame = newStringOfCap(1024)

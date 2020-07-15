@@ -1,18 +1,12 @@
-import loging
-import os
+import logging
 import json
 import jsonrpc
-import json
 import nre
 
 const name = "omni lsp"
 const version = "0.0.0"
-const storage = currentSourcePath().parentDir / "tmp"
 
-# make sure that a tmp folder exist
-discard existsOrCreateDir(storage)
-
-log name & " v" & version
+info name & " v" & version
 
 proc initializeResult(name, version: string, capabilities: JsonNode) : JsonNode = %* {
         "serverInfo" : {
@@ -29,9 +23,6 @@ iterator forAll(lines: seq[string], reg: Regex): JsonNode =
         var index = 0
 
         while true:
-            if index == line.len:
-                break
-
             let match = line.find(reg, index)
 
             if match.isNone:
@@ -52,28 +43,22 @@ iterator forAll(lines: seq[string], reg: Regex): JsonNode =
                 }
             }
 
-proc validateDocument(doc: JsonNode, rpc: Jsonrpc) =
-    let lines = doc["text"].getStr().split(re"\n")
+proc validateDocument(uri: string, version: int, text: string, rpc: Jsonrpc) =
+    let lines = text.split(re"\n")
 
     var diagnostics = newSeq[JsonNode]()
 
     for range in lines.forAll( re"[0-9]+" ):
-        diagnostics.add(% {
+        diagnostics.add(%* {
             "range" : range,
-            "severity" : %4,
-            "source" : %"lsp",
-            "message" : %"is a number"
+            "severity" : 4,
+            "source" : "lsp",
+            "message" : "is a number"
         })
 
-    # log DEBUG, %* {
-    #     "uri" : doc["uri"],
-    #     "version" : doc["version"],
-    #     "diagnostics" : diagnostics
-    # }
-
     rpc.notify("textDocument/publishDiagnostics", %* {
-        "uri" : doc["uri"],
-        "version" : doc["version"],
+        "uri" : uri,
+        "version" : version,
         "diagnostics" : diagnostics
     })
 
@@ -81,17 +66,18 @@ proc onRequest(message: RequestMessage, rpc: Jsonrpc): JsonNode =
     case message.action:
 
     of "shutdown":
-        log "shutting down server"
+        info "server shutting down"
 
         return %* nil
 
     of "initialize":
-        # log "root file " & message["params"]["rootUri"].path
+        info "server initializing"
+        info "root file " & message.params["rootUri"].getStr()
 
         return initializeResult(%* {
             "textDocumentSync" : {
                 "openClose" : true,
-                "change" : true
+                "change" : 2
             },
             "completionProvider" : {
                 "triggerCharacters" : [" ", "."],
@@ -105,7 +91,7 @@ proc onRequest(message: RequestMessage, rpc: Jsonrpc): JsonNode =
         })
 
     else:
-        log ERROR, "unhandled request " & message.action
+        error "unhandled request " & message.action
 
         return %* nil
 
@@ -113,16 +99,28 @@ proc onNotification(message: NotificationMessage, rpc: Jsonrpc) =
     case message.action:
 
     of "initialized":
-        log "served initialized"
+        info "server initialized"
 
     of "textDocument/didOpen":
-        log "opened " & message.params["textDocument"]["uri"].getStr()
-        validateDocument(message.params["textDocument"], rpc)
+        info "opened " & message.params["textDocument"]["uri"].getStr()
+        validateDocument(
+            message.params["textDocument"]["uri"].getStr(),
+            message.params["textDocument"]["version"].getInt(),
+            message.params["textDocument"]["text"].getStr()
+        , rpc)
+
+    of "textDocument/didChange":
+        info "edited " & message.params["textDocument"]["uri"].getStr()
+        validateDocument(
+            message.params["textDocument"]["uri"].getStr(),
+            message.params["textDocument"]["version"].getInt(),
+            message.params["contentChanges"][0]["text"].getStr()
+        , rpc)
 
     of "textDocument/didClose":
-        log "closed " & message.params["textDocument"]["uri"].getStr()
+        info "closed " & message.params["textDocument"]["uri"].getStr()
 
     else:
-        log "unhandled notification: " & message.action
+        info "unhandled notification: " & message.action
 
 jsonrpc(onRequest, onNotification)

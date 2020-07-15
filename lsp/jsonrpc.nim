@@ -1,8 +1,14 @@
+import logging
 import json
-import options
 import streams
 import jsonstream
-import loging
+import os
+
+let logPath = currentSourcePath().parentDir().parentDir() / "lsp.log"
+let logFile = open(logPath, fmWrite)
+let logger = newFileLogger(logFile, levelThreshold=lvlAll)
+
+addHandler( logger )
 
 type
     NotificationMessage* = object
@@ -76,13 +82,11 @@ template toResponseMessage(message: JsonNode): ResponseMessage =
 # the main event
 
 proc runJsonrpc*(rpc: Jsonrpc) =
-    log "jsonrpc opened"
+    info "jsonrpc server opened"
 
     while true:
         try:
             let message = rpc.ins.readJson()
-
-            # log DEBUG, message
 
             if isRequestMessage(message):
                 let result = rpc.onRequest( toRequestMessage(message), rpc )
@@ -93,18 +97,19 @@ proc runJsonrpc*(rpc: Jsonrpc) =
                 rpc.onNotification( toNotificationMessage(message) , rpc )
 
             elif isResponseMessage(message):
-                log INFO, "got repsonse to request " & $message["id"].getInt()
+                info "got repsonse to request " & $message["id"].getInt()
 
             else:
-                log ERROR, "unknow message type " & $message
+                error "unknow message type " & $message
             
         except CatchableError:
-            log ERROR, getCurrentException().name, getCurrentException().msg 
+            error getCurrentException().name, getCurrentException().msg 
         except:
-            log ERROR, getCurrentException().name, getCurrentException().msg
-            break
+            error getCurrentException().name, getCurrentException().msg
 
-    log "jsonrpc closed"
+        flushFile(logFile)
+
+    info "jsonrpc server closed"
 
 proc newJsonrpc*(onRequest: OnRequest, onNotification: OnNotification) : Jsonrpc =
     return Jsonrpc(
