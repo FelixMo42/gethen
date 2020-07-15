@@ -1,67 +1,79 @@
-import jsonschema
 import json
 import options
 import streams
 import jsonstream
 import loging
 
-jsonSchema:
-    Message:
-        "jsonrpc" : string
-
-    RequestMessage extends Message:
-        "id" : int or string
-        "method" : string
-        "params" ?: any
-
-    ResponseMessage extends Message:
-        "id" : int or string or nil
-        "result" ?: any
-        "error" ?: ResponseError
-
-    ResponseError:
-        "code" : int
-        "message" : string
-        "data" ?: any
-
-    NotificationMessage extends Message:
-        "method" : string
-        "params" : any
-
-    CancelParams:
-        "id" : int or string
-
-    ProgressParams:
-        "token" : string or int
-        "value" : any
-
 type
-    OnNotification = proc (message: NotificationMessage)
+    NotificationMessage* = object
+        action* : string
+        params* : JsonNode
 
-    OnRequest = proc (message: RequestMessage): JsonNode
+    RequestMessage* = object 
+        id : JsonNode
+        action* : string
+        params* : JsonNode
 
-    OnResponse = proc (n: ResponseMessage)
+    ResponseMessage* = object
+        id : JsonNode
+        result : JsonNode
+        error  : JsonNode
 
-    Jsonrpc = ref object
+    # jsonrpc callbacks
+    OnNotification = proc (m: NotificationMessage, rpc: Jsonrpc)
+    OnRequest = proc (m: RequestMessage, rpc: Jsonrpc): JsonNode
+    OnResponse = proc (m: ResponseMessage, rpc: Jsonrpc)
+
+    # the man himself
+    Jsonrpc* = ref object
         onRequest: OnRequest
         onNotification: OnNotification
         ins, outs : FileStream
         currentId : int
 
-# proc request(meth: string, params: JsonNode) =
-#         outs.sendJson(%* {
-#             "method" : meth,
-#             "params" : params
-#         })
+proc getNewId*(rpc: Jsonrpc): int =
+    rpc.currentId += 1
+    return rpc.currentId
 
-# proc request(meth: string, params: JsonNode, onResponse: OnResponse) =
-#     currentId += 1 
+proc notify*(rpc: Jsonrpc, action: string, params: JsonNode) =
+    rpc.outs.sendJson(%* {
+        "jsonrpc" : "2.0",
+        "method" : action,
+        "params" : params
+    })
 
-#     outs.sendJson(%* {
-#         "id" : currentId,
-#         "method" : meth,
-#         "params" : params
-#     })
+proc request*(rpc: Jsonrpc, action: string, params: JsonNode, onResponse: OnResponse) =
+    rpc.outs.sendJson(%* {
+        "jsonrpc" : "2.0",
+        "id" : rpc.getNewId(),
+        "method" : action,
+        "params" : params
+    })
+
+# type vaildation
+
+proc hasKey(json: JsonNode, key: string, kind: JsonNodeKind): bool =
+    json.hasKey(key) and json[key].kind == kind
+
+template isRequestMessage(message: JsonNode): bool =
+    message.hasKey("id") and message.hasKey("method", JString) and message.hasKey("params")
+
+template isNotificationMessage(message: JsonNode): bool =
+    message.hasKey("method", JString) and message.hasKey("params")
+
+template isResponseMessage(message: JsonNode): bool =
+    message.hasKey("id") and message.hasKey("params")
+
+template toRequestMessage(message: JsonNode): RequestMessage =
+    RequestMessage(id: message["id"], action: message["method"].getStr(), params: message["params"])
+
+template toNotificationMessage(message: JsonNode): NotificationMessage =
+    NotificationMessage(action: message["method"].getStr(), params: message["params"])
+
+template toResponseMessage(message: JsonNode): ResponseMessage =
+    ResponseMessage(id: message["id"], result: message["result"])
+
+# the main event
 
 proc runJsonrpc*(rpc: Jsonrpc) =
     log "jsonrpc opened"
@@ -70,27 +82,32 @@ proc runJsonrpc*(rpc: Jsonrpc) =
         try:
             let message = rpc.ins.readJson()
 
-            if message.isValid( RequestMessage ):
-                let result = rpc.onRequest( RequestMessage(message) )
+            # log DEBUG, message
+
+            if isRequestMessage(message):
+                let result = rpc.onRequest( toRequestMessage(message), rpc )
 
                 rpc.outs.sendJson(%* { "jsonrpc" : "2.0", "id" : message["id"], "result" : result })
 
-            if message.isValid( NotificationMessage ):
-                rpc.onNotification( NotificationMessage(message) )
+            elif isNotificationMessage(message):
+                rpc.onNotification( toNotificationMessage(message) , rpc )
 
-            if message.isValid(ResponseMessage):
-                log INFO, "got repsonse to " & message["id"].getStr()
+            elif isResponseMessage(message):
+                log INFO, "got repsonse to request " & $message["id"].getInt()
+
+            else:
+                log ERROR, "unknow message type " & $message
             
         except CatchableError:
-            log ERROR, getCurrentExceptionMsg()
+            log ERROR, getCurrentException().name, getCurrentException().msg 
         except:
-            log ERROR, getCurrentExceptionMsg()
+            log ERROR, getCurrentException().name, getCurrentException().msg
             break
 
     log "jsonrpc closed"
 
 proc newJsonrpc*(onRequest: OnRequest, onNotification: OnNotification) : Jsonrpc =
-    let rpc = Jsonrpc(
+    return Jsonrpc(
         ins: newFileStream(stdin),
         outs: newFileStream(stdout),
         onRequest: onRequest,
@@ -98,6 +115,5 @@ proc newJsonrpc*(onRequest: OnRequest, onNotification: OnNotification) : Jsonrpc
         currentId: 0
     )
 
-    runJsonrpc(rpc)
-
-    return rpc
+proc jsonrpc*(onRequest: OnRequest, onNotification: OnNotification) = 
+    runJsonrpc(newJsonrpc(onRequest, onNotification))

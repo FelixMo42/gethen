@@ -1,9 +1,9 @@
 import loging
 import os
 import json
-import uri
-# import threadpool
-include jsonrpc
+import jsonrpc
+import json
+import nre
 
 const name = "omni lsp"
 const version = "0.0.0"
@@ -14,21 +14,7 @@ discard existsOrCreateDir(storage)
 
 log name & " v" & version
 
-proc path(node: JsonNode): string =
-    if node.kind == JObject: return node["uri"].path()
-    if node.kind == JString: return parseUri(node.getStr()).path
-    
-    raise newException(MalformedFrame, "Invalid id node: " & repr(node))
-
-# proc notify(meth: string, )
-
-# proc registration(meth: string, params: JsonNode): JsonNode = %* {
-#         "id" : getNewId(),
-#         "method" : meth,
-#         "registerOptions" : params
-#     }
-
-proc InitializeResult(name, version: string, capabilities: JsonNode) : JsonNode = %* {
+proc initializeResult(name, version: string, capabilities: JsonNode) : JsonNode = %* {
         "serverInfo" : {
             "name" : name,
             "version" : version
@@ -36,64 +22,107 @@ proc InitializeResult(name, version: string, capabilities: JsonNode) : JsonNode 
         "capabilities" : capabilities
     }
 
-proc InitializeResult(capabilities: JsonNode) : JsonNode = InitializeResult(name, version, capabilities)
+proc initializeResult(capabilities: JsonNode) : JsonNode = initializeResult(name, version, capabilities)
 
-# proc validateDocument(document: JsonNode) =
-#     let text = document["text"]
+iterator forAll(lines: seq[string], reg: Regex): JsonNode =
+    for i , line in lines:
+        var index = 0
 
-#     request()
+        while true:
+            if index == line.len:
+                break
 
-proc onRequest(message: RequestMessage): JsonNode =
-    case message["method"].getStr():
+            let match = line.find(reg, index)
+
+            if match.isNone:
+                break
+
+            let bounds = match.get.matchBounds
+            
+            index = bounds.b + 1
+
+            yield %* {
+                "start" : {
+                    "line" : i,
+                    "character" : bounds.a
+                },
+                "end" : {
+                    "line" : i,
+                    "character" : bounds.b + 1
+                }
+            }
+
+proc validateDocument(doc: JsonNode, rpc: Jsonrpc) =
+    let lines = doc["text"].getStr().split(re"\n")
+
+    var diagnostics = newSeq[JsonNode]()
+
+    for range in lines.forAll( re"[0-9]+" ):
+        diagnostics.add(% {
+            "range" : range,
+            "severity" : %4,
+            "source" : %"lsp",
+            "message" : %"is a number"
+        })
+
+    # log DEBUG, %* {
+    #     "uri" : doc["uri"],
+    #     "version" : doc["version"],
+    #     "diagnostics" : diagnostics
+    # }
+
+    rpc.notify("textDocument/publishDiagnostics", %* {
+        "uri" : doc["uri"],
+        "version" : doc["version"],
+        "diagnostics" : diagnostics
+    })
+
+proc onRequest(message: RequestMessage, rpc: Jsonrpc): JsonNode =
+    case message.action:
 
     of "shutdown":
         log "shutting down server"
+
         return %* nil
 
     of "initialize":
         # log "root file " & message["params"]["rootUri"].path
 
-        return InitializeResult(%* {
+        return initializeResult(%* {
             "textDocumentSync" : {
                 "openClose" : true,
                 "change" : true
             },
             "completionProvider" : {
-                # "triggerCharacters" : ["."],
-                # "allCommitCharacters" : [" ", "."],
+                "triggerCharacters" : [" ", "."],
+                "allCommitCharacters" : ["."],
 
                 "resolveProvider" : true,
-                # "workDoneProgress" : false
-            }
+                "workDoneProgress" : false
+            },
+            "definitionProvider" : true,
+            "hoverProvider" : true
         })
 
     else:
-        log ERROR, "unhandled request " & message["method"].getStr()
+        log ERROR, "unhandled request " & message.action
 
         return %* nil
 
-proc onNotification(message: NotificationMessage) =
-    case message["method"].getStr():
+proc onNotification(message: NotificationMessage, rpc: Jsonrpc) =
+    case message.action:
 
     of "initialized":
         log "served initialized"
 
-        # DidChangeConfigurationNotification.type
-
-        # request("client/registerCapability", %* {
-        #     "registrations" : [
-        #         registration("textDocument/willSaveWaitUntil", %* nil)
-        #     ]
-        # })
-
     of "textDocument/didOpen":
-        log "opened " & message["params"]["textDocument"].path
-        # validateDocument(message["params"]["textDocument"])
+        log "opened " & message.params["textDocument"]["uri"].getStr()
+        validateDocument(message.params["textDocument"], rpc)
 
     of "textDocument/didClose":
-        log "closed " & message["params"]["textDocument"].path
+        log "closed " & message.params["textDocument"]["uri"].getStr()
 
     else:
-        log INFO, "unhandled notification: " & message["method"].getStr
+        log "unhandled notification: " & message.action
 
-let rpc = newJsonrpc(onRequest, onNotification)
+jsonrpc(onRequest, onNotification)
