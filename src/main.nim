@@ -9,11 +9,6 @@ type
         KeyWord
         EOF
 
-    NodeKind = enum
-        Terminal
-        NonTerminal
-        Failure
-
     Token = tuple
         kind: TokenKind
         body: string
@@ -23,6 +18,13 @@ type
         index  : int
 
     TokenOutOfBounds = object of ValueError
+        
+    # node
+
+    NodeKind = enum
+        NonTerminal
+        Terminal
+        Failure
 
     Node = object
         case kind: NodeKind
@@ -130,10 +132,7 @@ proc loop[T](tokens: Tokens, rule: T): Node =
     while value := tokens.next(rule):
         values.add( value )
 
-    return Node(
-        kind : NonTerminal,
-        nodes : values
-    )
+    return Node( kind : NonTerminal, nodes : values )
 
 proc mult[T](tokens: Tokens, rule: T): Node =
     if value := tokens.next(rule) :
@@ -153,7 +152,6 @@ proc mult[T](tokens: Tokens, rule: T): Node =
 
 proc StepRule(tokens: Tokens): Node
 proc OptsRule(tokens: Tokens): Node
-
 
 proc AtomRule(tokens: Tokens): Node =
     if name := tokens.next(Ident):
@@ -216,17 +214,20 @@ let tokens = @[
     (Ident, "step"),
     (KeyWord, "="),
         (Ident, "step"),
-        (Ident, "Operator"),
+        (Ident, "OP"),
         (Operator, "?"),
 
     (KeyWord, "@"),
     (Ident, "opts"),
     (KeyWord, "="),
-        (Ident, ""),
+        (Ident, "step"),
         (Operator, "+"),
-        (Ident, "NAME"),
-        (StrLit, "'='"),
-        (Ident, "opts"),
+        (KeyWord, "("),
+            (StrLit, "'/'"),
+            (Ident, "step"),
+            (Operator, "+"),
+        (KeyWord, ")"),
+        (Operator, "*"),
 
     (KeyWord, "@"),
     (Ident, "rule"),
@@ -244,23 +245,53 @@ let tokens = @[
         (Ident, "EOF")
 ].Toks()
 
-proc print(ast: Node, tab: string="") =
-    case ast.kind:
+proc body(node: Node): string =
+    case node.kind
+        of Terminal :
+            return node.token.body
+        else :
+            return "ERROR"
+#
 
-    of NonTerminal :
-        for node in ast.nodes:
-            print(node, tab & "    ")
+proc makeStep(node: Node, tab: string) =
+    case node.kind
+        of Terminal :
+            echo tab, "if ", node.body ," :"
+        else :
+            if node.nodes[0].body == "*" :
+                echo tab, "if ", node.nodes[1].body, " :"
+            
+            if node.nodes[0].body == "+" :
+                echo tab, "for ", node.nodes[1].body, " :"
 
-    of Terminal :
-        echo tab & ast.token.body
+            if node.nodes[0].body == "?" :
+                echo tab, "for ", node.nodes[1].body, " :"
+            
 
-    of Failure :
-        echo tab & "failure: " & ast.msg
+proc makeOpts(node: Node, tab: string) = 
+    for opt in node.nodes:
+        makeStep(opt.nodes[0], tab)
 
-print FileRule(tokens)
+    echo tab, "return fail('')"
 
-#[
-    @step = Ident
-    @rule = step*
-    @file = rule EOF
-]#
+proc makeFile(node: Node) =
+    for rule in node.nodes :
+        echo "proc ", rule.nodes[0].body, "(tokens: Tokens): Node ="
+
+        makeOpts(rule.nodes[1], "\t")
+
+        echo ""
+
+    # case node.kind:
+
+    # of NonTerminal :
+    #     for node in node.nodes:
+    #         print(node, tab & "  ")
+
+    # of Terminal :
+    #     echo tab & node.token.body
+
+    # of Failure :
+    #     echo tab & "failure: " & node.msg
+
+makeFile( FileRule(tokens) )
