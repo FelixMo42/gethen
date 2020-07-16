@@ -49,8 +49,6 @@ proc readFrame*(s: Stream): TaintedString =
             else:
                 raise newException(MalformedFrame, "missing Content-Length header")
 
-
-
 proc sendJson*(s: Stream, data: JsonNode) =
     var frame = newStringOfCap(1024)
     toUgly(frame, data)

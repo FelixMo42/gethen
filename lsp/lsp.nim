@@ -3,7 +3,7 @@ import json
 import jsonrpc
 import nre
 
-const name = "omni lsp"
+const name = "gethen lsp"
 const version = "0.0.0"
 
 info name & " v" & version
@@ -52,7 +52,7 @@ proc validateDocument(uri: string, version: int, text: string, rpc: Jsonrpc) =
         diagnostics.add(%* {
             "range" : range,
             "severity" : 4,
-            "source" : "lsp",
+            "source" : "gethen lsp",
             "message" : "is a number"
         })
 
