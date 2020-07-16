@@ -96,12 +96,15 @@ proc next(tokens: Tokens, kind: TokenKind): Node =
     return fail()
 
 proc next(tokens: Tokens, rule: Rule): Node =
+    let save = tokens.save()
+
     let node = rule(tokens)
 
     if node.kind != Failure :
-        tokens.next()
-
         return node
+
+    tokens.load(save)
+
     return fail()
 
 # parse function
