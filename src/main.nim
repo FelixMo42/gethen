@@ -1,9 +1,18 @@
 type
-    TokenKind = enum 
-        Ident,
-        NumLit,
-        KeyWord,
+    # token stuff
+
+    TokenKind = enum
+        Ident
+        Operator
+        NumLit
+        StrLit
+        KeyWord
         EOF
+
+    NodeKind = enum
+        Terminal
+        NonTerminal
+        Failure
 
     Token = tuple
         kind: TokenKind
@@ -13,23 +22,23 @@ type
         tokens : seq[Token]
         index  : int
 
-    NodeKind = enum
-        Terminal
-        NonTerminal
-        Failure
+    TokenOutOfBounds = object of ValueError
 
     Node = object
         case kind: NodeKind
-        of Terminal:
-            node : Token
-        of NonTerminal:
+
+        of Terminal :
+            token : Token
+
+        of NonTerminal :
             nodes : seq[Node]
-        of Failure:
-            discard
+
+        of Failure :
+            msg : string
+
+    #
 
     Rule = proc (tokens: Tokens) : Node
-
-    TokenOutOfBounds = object of ValueError
 
 # token functions
 
@@ -68,12 +77,12 @@ proc Toks(tokens: seq[Token]): Tokens =
 
 proc newNode(tokens: seq[Node]): Node =
     return Node(
-        kind : NonTerminal,
+        kind  : NonTerminal,
         nodes : tokens
     )
 
-proc fail(): Node =
-    return Node(kind: Failure)
+proc fail(msg: string): Node =
+    return Node(kind: Failure, msg: msg)
 
 template `:=`(a,b): bool =
     let a = b
@@ -89,8 +98,9 @@ proc next(tokens: Tokens, body: string): Node =
     if token.body == body :
         tokens.next()
 
-        return Node(kind : Terminal, node : token)
-    return fail()
+        return Node(kind: Terminal, token: token)
+
+    return fail("1")
 
 proc next(tokens: Tokens, kind: TokenKind): Node =
     let token = tokens.peek()
@@ -98,88 +108,159 @@ proc next(tokens: Tokens, kind: TokenKind): Node =
     if token.kind == kind :
         tokens.next()
 
-        return Node(kind : Terminal, node : token)
-    return fail()
+        return Node(kind: Terminal, token: token)
+
+    return fail("2")
 
 proc next(tokens: Tokens, rule: Rule): Node =
     let save = tokens.save()
 
     let node = rule(tokens)
 
-    if node.kind != Failure :
-        return node
+    if node.kind == Failure :
+        tokens.load(save)
 
-    tokens.load(save)
-
-    return fail()
-
-# parse function
-
-template expect*(tokens: Tokens, rule: untyped): Node =
-    tokens.next(rule)
+    return node
 
 #
 
-template zeroplus(rule, name, next) =
-    let values = Node(
+proc loop[T](tokens: Tokens, rule: T): Node =
+    var values = newSeq[Node]()
+
+    while value := tokens.next(rule):
+        values.add( value )
+
+    return Node(
         kind : NonTerminal,
-        nodes : newSeq[Node]()
+        nodes : values
     )
 
-    while true:
-        rule(value):
-            values.nodes.push(value)
-            continue
-        break
+proc mult[T](tokens: Tokens, rule: T): Node =
+    if value := tokens.next(rule) :
+        var values = @[ value ]
 
-    next
+        while value := tokens.next(rule):
+            values.add( value )
+
+        return Node(
+            kind : NonTerminal,
+            nodes : values
+        )
+
+    return fail("")
 
 # value
 
-proc ValueRule(tokens: Tokens): Node
-proc ExprRule(tokens: Tokens): Node
-proc FileRule(tokens: Tokens): Node
+proc StepRule(tokens: Tokens): Node
+proc OptsRule(tokens: Tokens): Node
 
-proc ValueRule(tokens: Tokens): Node =
-    if a := tokens.expect(NumLit) :
-        return a
 
-    if tokens.expect("("):
-        if values := tokens.expect(ExprRule):
-            if tokens.expect(")"):
-                return values
+proc AtomRule(tokens: Tokens): Node =
+    if name := tokens.next(Ident):
+        return name
+    if name := tokens.next(StrLit):
+        return name
+    if tokens.next("("):
+        if steps := tokens.next(OptsRule):
+            if tokens.next(")"):
+                return steps
+    return fail("")
 
-    if tokens.expect("["):
-        if value := tokens.expect(ExprRule):
-            if tokens.expect("]"):
-                return value
+proc StepRule(tokens: Tokens): Node =
+    if atom := tokens.next(AtomRule):
+        if op := tokens.next(Operator):
+            return newNode(@[op, atom])
+        return atom
+    return fail("expected expr")
 
-    return fail()
+proc OptsRule(tokens: Tokens): Node =
+    if opt := tokens.mult(StepRule):
+        var opts = @[ opt ]
+        while true :
+            if tokens.next("/"):
+                if opt := tokens.mult(StepRule):
+                    opts.add opt
+                    continue
+                return fail("expected expr")
+            return newNode(opts)
+    return fail("expected expr")
 
-proc ExprRule(tokens: Tokens): Node =
-    if a := tokens.expect(ValueRule):
-        if tokens.expect("+"):
-            if b := tokens.expect(ExprRule):
-                return newNode(@[ a, b ])
-            return fail()
-        return a
-    return fail()
+proc RuleRule(tokens: Tokens): Node =
+    if tokens.next("@"):
+        if name := tokens.next(Ident):
+            if tokens.next("="):
+                if opts := tokens.next(OptsRule):
+                    return newNode(@[ name, opts ])
+    return fail("expected expr")
 
 proc FileRule(tokens: Tokens): Node =
-    if value := tokens.expect(ExprRule):
-        if tokens.expect(EOF):
+    if value := tokens.loop(RuleRule):
+        if tokens.next(EOF):
             return value
-    
-    return fail()
+        return fail("expected eof")
+    return fail("you get the gist")
 
 let tokens = @[
-    (KeyWord, "("),
-        (NumLit, "1"),
-        (Ident, "+"),
-        (NumLit, "2"),
-    (KeyWord, ")"),
-    (Ident, "+"),
-    (NumLit, "3")
+    (KeyWord, "@"),
+    (Ident, "atom"),
+    (KeyWord, "="),
+        (Ident, "NAME"),
+        (KeyWord, "/"),
+        (Ident, "STRING"),
+        (KeyWord, "/"),
+        (StrLit, "'('"),
+        (Ident, "opts"),
+        (StrLit, "')'"),
+
+    (KeyWord, "@"),
+    (Ident, "step"),
+    (KeyWord, "="),
+        (Ident, "step"),
+        (Ident, "Operator"),
+        (Operator, "?"),
+
+    (KeyWord, "@"),
+    (Ident, "opts"),
+    (KeyWord, "="),
+        (Ident, ""),
+        (Operator, "+"),
+        (Ident, "NAME"),
+        (StrLit, "'='"),
+        (Ident, "opts"),
+
+    (KeyWord, "@"),
+    (Ident, "rule"),
+    (KeyWord, "="),
+        (StrLit, "'@'"),
+        (Ident, "NAME"),
+        (StrLit, "'='"),
+        (Ident, "opts"),
+
+    (KeyWord, "@"),
+    (Ident, "file"),
+    (KeyWord, "="),
+        (Ident, "rule"),
+        (Operator, "*"),
+        (Ident, "EOF")
 ].Toks()
 
-echo FileRule(tokens)
+proc print(ast: Node, tab: string="") =
+    case ast.kind:
+
+    of NonTerminal :
+        for node in ast.nodes:
+            print(node, tab & "    ")
+
+    of Terminal :
+        echo tab & ast.token.body
+
+    of Failure :
+        echo tab & "failure: " & ast.msg
+
+print FileRule(tokens)
+
+#[
+    @step = Ident
+    @rule = step*
+    @file = rule EOF
+]#
