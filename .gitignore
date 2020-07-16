@@ -1,3 +1,6 @@
+# dont include logs
 **.log
+
+# dont include binaries
+main/main
 lsp/lsp
-node_modules
