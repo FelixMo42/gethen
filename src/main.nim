@@ -75,6 +75,12 @@ proc newNode(tokens: seq[Node]): Node =
 proc fail(): Node =
     return Node(kind: Failure)
 
+template `:=`(a,b): bool =
+    let a = b
+    a
+
+converter toBool(a: Node): bool = a.kind != Failure
+
 #
 
 proc next(tokens: Tokens, body: string): Node =
@@ -109,16 +115,24 @@ proc next(tokens: Tokens, rule: Rule): Node =
 
 # parse function
 
+template expect*(tokens: Tokens, rule: untyped): Node =
+    tokens.next(rule)
 
-template expect*(tokens: Tokens, rule, node: untyped): bool =
-    # set the node to be the next node
-    let node = tokens.next(rule)
+#
 
-    # return true if is not a failure
-    node.kind != Failure
+template zeroplus(rule, name, next) =
+    let values = Node(
+        kind : NonTerminal,
+        nodes : newSeq[Node]()
+    )
 
-template expect*(tokens: Tokens, rule: untyped): bool =
-    tokens.next(rule).kind != Failure
+    while true:
+        rule(value):
+            values.nodes.push(value)
+            continue
+        break
+
+    next
 
 # value
 
@@ -127,32 +141,32 @@ proc ExprRule(tokens: Tokens): Node
 proc FileRule(tokens: Tokens): Node
 
 proc ValueRule(tokens: Tokens): Node =
-    if tokens.expect(NumLit, a):
+    if a := tokens.expect(NumLit) :
         return a
 
     if tokens.expect("("):
-        if tokens.expect(ExprRule, values):
+        if values := tokens.expect(ExprRule):
             if tokens.expect(")"):
                 return values
 
     if tokens.expect("["):
-        if tokens.expect(ExprRule, value):
+        if value := tokens.expect(ExprRule):
             if tokens.expect("]"):
                 return value
 
     return fail()
 
 proc ExprRule(tokens: Tokens): Node =
-    if tokens.expect(ValueRule, a):
+    if a := tokens.expect(ValueRule):
         if tokens.expect("+"):
-            if tokens.expect(ExprRule, b):
+            if b := tokens.expect(ExprRule):
                 return newNode(@[ a, b ])
             return fail()
         return a
     return fail()
 
 proc FileRule(tokens: Tokens): Node =
-    if tokens.expect(ExprRule, value):
+    if value := tokens.expect(ExprRule):
         if tokens.expect(EOF):
             return value
     
