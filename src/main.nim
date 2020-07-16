@@ -2,6 +2,7 @@ type
     TokenKind = enum 
         Ident,
         NumLit,
+        KeyWord,
         EOF
 
     Token = tuple
@@ -41,7 +42,7 @@ proc peek*(tokens: Tokens): Token =
     
     raise newException(TokenOutOfBounds, "failed to recognize the end of file")
 
-proc skip*(tokens: Tokens) =
+proc next*(tokens: Tokens) =
     tokens.index += 1
 
 proc read*(tokens: Tokens): Token =
@@ -49,7 +50,7 @@ proc read*(tokens: Tokens): Token =
     let token = tokens.peek()
 
     # increment are location in the list
-    tokens.skip()
+    tokens.next()
 
     # return the current token
     return token
@@ -59,68 +60,6 @@ proc save*(tokens: Tokens): int =
 
 proc load*(tokens: Tokens, index: int) =
     tokens.index = index
-
-# parse function
-
-template expect*(tokens: Tokens, value: string, name: untyped, next: untyped) =
-    let token = tokens.peek()
-
-    if token.body == value :
-        let name = Node(
-            terminal : true,
-            node : tokens.read()
-        )
-
-        next
-
-template expect*(tokens: Tokens, value: string, next: untyped) =
-    let token = tokens.peek()
-
-    if token.body == value :
-        tokens.skip()
-
-        next
-
-template expect*(tokens: Tokens, value: TokenKind, name: untyped, next: untyped) =
-    let token = tokens.peek()
-
-    if token.kind == value :
-        let name = Node(
-            kind : Terminal,
-            node : tokens.read()
-        )
-
-        next
-
-template expect*(tokens: Tokens, value: TokenKind, next: untyped) =
-    let token = tokens.peek()
-
-    if token.kind == value :
-        tokens.skip()
-
-        next
-
-template expect*(tokens: Tokens, rule: Rule, name: untyped, next: untyped) =
-    let index = tokens.save()
-
-    let ast = rule(tokens)
-
-    if ast.kind != Failure :
-        let name = ast
-
-        next
-
-    tokens.load(index)
-
-template expect*(tokens: Tokens, rule: Rule, next: untyped) =
-    let index = tokens.save()
-
-    let ast = rule(tokens)
-
-    if ast.len != Failure :
-        next
-
-    tokens.load(index)
 
 # utility
 
@@ -136,6 +75,48 @@ proc newNode(tokens: seq[Node]): Node =
 proc fail(): Node =
     return Node(kind: Failure)
 
+#
+
+proc next(tokens: Tokens, body: string): Node =
+    let token = tokens.peek()
+
+    if token.body == body :
+        tokens.next()
+
+        return Node(kind : Terminal, node : token)
+    return fail()
+
+proc next(tokens: Tokens, kind: TokenKind): Node =
+    let token = tokens.peek()
+
+    if token.kind == kind :
+        tokens.next()
+
+        return Node(kind : Terminal, node : token)
+    return fail()
+
+proc next(tokens: Tokens, rule: Rule): Node =
+    let node = rule(tokens)
+
+    if node.kind != Failure :
+        tokens.next()
+
+        return node
+    return fail()
+
+# parse function
+
+
+template expect*(tokens: Tokens, rule, node: untyped): bool =
+    # set the node to be the next node
+    let node = tokens.next(rule)
+
+    # return true if is not a failure
+    node.kind != Failure
+
+template expect*(tokens: Tokens, rule: untyped): bool =
+    tokens.next(rule).kind != Failure
+
 # value
 
 proc ValueRule(tokens: Tokens): Node
@@ -143,31 +124,45 @@ proc ExprRule(tokens: Tokens): Node
 proc FileRule(tokens: Tokens): Node
 
 proc ValueRule(tokens: Tokens): Node =
-    tokens.expect(NumLit, a):
+    if tokens.expect(NumLit, a):
         return a
 
-    tokens.expect("("):
-        tokens.expect(ExprRule, value):
-            tokens.expect(")"):
+    if tokens.expect("("):
+        if tokens.expect(ExprRule, values):
+            if tokens.expect(")"):
+                return values
+
+    if tokens.expect("["):
+        if tokens.expect(ExprRule, value):
+            if tokens.expect("]"):
                 return value
 
     return fail()
 
 proc ExprRule(tokens: Tokens): Node =
-    tokens.expect(ValueRule, a):
-        tokens.expect("+"):
-            tokens.expect(ValueRule, b):
+    if tokens.expect(ValueRule, a):
+        if tokens.expect("+"):
+            if tokens.expect(ExprRule, b):
                 return newNode(@[ a, b ])
-        
+            return fail()
+        return a
     return fail()
 
 proc FileRule(tokens: Tokens): Node =
-    tokens.expect(ExprRule, value):
-        tokens.expect(EOF):
+    if tokens.expect(ExprRule, value):
+        if tokens.expect(EOF):
             return value
     
     return fail()
 
-let tokens = @[ (NumLit, "1"), (Ident, "+"), (NumLit, "1") ].Toks()
+let tokens = @[
+    (KeyWord, "("),
+        (NumLit, "1"),
+        (Ident, "+"),
+        (NumLit, "2"),
+    (KeyWord, ")"),
+    (Ident, "+"),
+    (NumLit, "3")
+].Toks()
 
 echo FileRule(tokens)
