@@ -5,7 +5,7 @@ import options
 
 # utility
 
-const rf = "return fail(\"\")"
+const rf = "return none()"
 
 proc tab(text: string): string =
     text.indent(1, "    ")
@@ -31,7 +31,6 @@ proc isUpperCase(text: string): bool =
 
 proc StepRule(tokens: Tokens): Node
 proc OptsRule(tokens: Tokens): Node
-proc getType(node: Node): string
 
 proc AtomRule(tokens: Tokens): Node =
     if name := tokens.next(Ident):
@@ -45,13 +44,16 @@ proc AtomRule(tokens: Tokens): Node =
     return fail("")
 
 proc StepRule(tokens: Tokens): Node =
-    let save = tokens.save()
-    var name = Node(kind: Terminal, token: (Ident, ""))
-    if n := tokens.next(Ident):
-        if tokens.next(":"):
-            name = n
-        else:
-            tokens.load(save)
+    proc tmp(tokens: Tokens): Node =
+        if n := tokens.next(Ident):
+            if tokens.next(":"):
+                return n
+        return fail("")
+
+    let name = tokens.next(tmp)
+
+    # echo name
+
     if atom := tokens.next(AtomRule):
         if op := tokens.next(Operator):
             return newNode(@[op, atom, name])
@@ -88,50 +90,53 @@ proc FileRule(tokens: Tokens): Node =
 #
 
 proc makeSteps(node: Node, nt: string, el: string): string
-proc makeStep(node: Node, nt: string, el: string): string
+proc makeStep(node: Node, name: char, nt: string, el: string): string
 proc makeOpts(node: Node): string
+proc getType(node: Node): string
 
-proc makeStep(node: Node, nt: string, el: string): string =        
+proc makeStep(node: Node, name: char, nt: string, el: string): string =        
     let operator = node.ns[0].body
     var pattname = node.ns[1].body
-    let stepname = node.ns[2].body
 
     var text = ""
 
     if node.ns[1].kind == NonTerminal :
         text =
             "proc tmp(tokens: Tokens) : Node =" \
-                makeOpts(node.ns[1]).tab \ "" \ ""
+                makeOpts(node.ns[1]).tab \ ""
 
         pattname = "tmp"
-    
+
     if operator == "*" :
         return text & 
-            "if tokens.loop(" & pattname & ") :" \
-                nt.tab
+            "let " & name & " = tokens.loop(" & pattname & ")" \
+            nt
     
     if operator == "+" :
         return text &
-            "if tokens.mult(" & pattname & ") :" \
+            "if " & name & " := tokens.mult(" & pattname & ") :" \
                 nt.tab \
             el
 
     if operator == "?" :
         return text & 
-            "tokens.next(" & pattname & ")" \
+            "let " & name & " = tokens.next(" & pattname & ")" \
             nt
 
     if operator == " " :
         return text & 
-            "if tokens.next(" & pattname & ") :" \
+            "if " & name & " := tokens.next(" & pattname & ") :" \
                 nt.tab \
             el
 
 proc makeSteps(node: Node, nt: string, el: string): string =
     var text = nt
+    var name = 'a' 
 
     for step, i in node.ns.reverse:
-        text = makeStep(step, text, el)
+        text = makeStep(step, name, text, el)
+
+        inc(name)
 
     return text
 
@@ -139,7 +144,7 @@ proc makeOpts(node: Node): string =
     var text = rf
 
     for opt, i in node.ns.reverse:
-        text = makeSteps(opt, "return newNode(@[])", text)
+        text = makeSteps(opt, "return (@[])", text)
     
     return text
 
@@ -148,7 +153,7 @@ proc getType2(node: Node): string =
         of Terminal :
             if node.token.kind == Ident :
                 if node.token.body.isUpperCase:
-                    return node.token.body
+                    return "Token"#node.token.body
                 return node.token.body & "Node"
             else:
                 return ""
@@ -168,7 +173,6 @@ proc getType2(node: Node): string =
 
             return "ERROR"
             
-
 proc getType(node: Node): string =
     let op = node.ns[0].body
 
@@ -181,22 +185,20 @@ proc getType(node: Node): string =
 
 proc makeType(node: Node): string =
     var text = "object"
-    let name = "a"
 
     for opt in node.ns[1].ns :
         for el in opt.ns :
-            let t = getType(el)
-            if t != "" :
-                text \= (name & " : " & t).tab
+            if el.ns[2].kind == Terminal:
+                text \= (el.ns[2].body & " : " & getType(el)).tab
 
     return text
 
 proc makeFile(node: Node): string =
     var text =
-        "import base" \
-        "import options" \ ""
+        "import options" \
+        "import tokens" \ ""
 
-    text \= "type"        
+    text \= "type"
     for rule in node.ns :
         text \= (rule.nodeName & "* = " & makeType(rule)).tab \ ""
 

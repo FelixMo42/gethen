@@ -1,28 +1,24 @@
-import base
 import options
+import tokens
 
 type
     atomNode* = object
-        a : NAME
-        a : STRING
-        a : optsNode
 
     stepNode* = object
-        a : Option[NAME]
-        a : stepNode
-        a : Option[OP]
+        name : Option[Token]
+        pattern : atomNode
+        operator : Option[Token]
 
     optsNode* = object
-        a : seq[stepNode]
-        a : seq[seq[stepNode]]
+        steps : seq[stepNode]
+        steps : seq[seq[stepNode]]
 
     ruleNode* = object
-        a : NAME
-        a : optsNode
+        name : 
+        opts : 
 
     fileNode* = object
-        a : seq[ruleNode]
-        a : EOF
+        rules : seq[ruleNode]
 
 proc atom*(tokens: Tokens): atomNode
 proc step*(tokens: Tokens): stepNode
@@ -31,58 +27,56 @@ proc rule*(tokens: Tokens): ruleNode
 proc file*(tokens: Tokens): fileNode
 
 proc atom*(tokens: Tokens): atomNode =
-    if tokens.next(NAME) :
-        return newNode(@[])
-    if tokens.next(STRING) :
-        return newNode(@[])
-    if tokens.next('(') :
-        if tokens.next(opts) :
-            if tokens.next(')') :
-                return newNode(@[])
-            return fail("")
-        return fail("")
-    return fail("")
+    if a := tokens.next(NAME) :
+        return (@[])
+    if a := tokens.next(STRING) :
+        return (@[])
+    if c := tokens.next("(") :
+        if b := tokens.next(opts) :
+            if a := tokens.next(")") :
+                return (@[])
+            return none()
+        return none()
+    return none()
 
 proc step*(tokens: Tokens): stepNode =
     proc tmp(tokens: Tokens) : Node =
-        if tokens.next(NAME) :
-            if tokens.next(':') :
-                return newNode(@[])
-            return fail("")
-        return fail("")
-    
-    tokens.next(tmp)
-    if tokens.next(step) :
-        tokens.next(OP)
-        return newNode(@[])
-    return fail("")
+        if b := tokens.next(NAME) :
+            if a := tokens.next(":") :
+                return (@[])
+            return none()
+        return none()
+    let c = tokens.next(tmp)
+    if b := tokens.next(atom) :
+        let a = tokens.next(OPERATOR)
+        return (@[])
+    return none()
 
 proc opts*(tokens: Tokens): optsNode =
-    if tokens.mult(step) :
+    if b := tokens.mult(step) :
         proc tmp(tokens: Tokens) : Node =
-            if tokens.next('/') :
-                if tokens.mult(step) :
-                    return newNode(@[])
-                return fail("")
-            return fail("")
-        
-        if tokens.loop(tmp) :
-            return newNode(@[])
-    return fail("")
+            if b := tokens.next("/") :
+                if a := tokens.mult(step) :
+                    return (@[])
+                return none()
+            return none()
+        let a = tokens.loop(tmp)
+        return (@[])
+    return none()
 
 proc rule*(tokens: Tokens): ruleNode =
-    if tokens.next('@') :
-        if tokens.next(NAME) :
-            if tokens.next('=') :
-                if tokens.next(opts) :
-                    return newNode(@[])
-                return fail("")
-            return fail("")
-        return fail("")
-    return fail("")
+    if d := tokens.next("@") :
+        if c := tokens.next(NAME) :
+            if b := tokens.next("=") :
+                if a := tokens.next(opts) :
+                    return (@[])
+                return none()
+            return none()
+        return none()
+    return none()
 
 proc file*(tokens: Tokens): fileNode =
-    if tokens.loop(rule) :
-        if tokens.next(EOF) :
-            return newNode(@[])
-        return fail("")
+    let b = tokens.loop(rule)
+    if a := tokens.next(EOF) :
+        return (@[])
+    return none()
