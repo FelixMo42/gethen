@@ -85,6 +85,7 @@ proc ns*(node: Node): seq[Node] =
         return node.nodes
     else:
         echo "NS Error"
+        echo node
         return @[]
 
 # token functions

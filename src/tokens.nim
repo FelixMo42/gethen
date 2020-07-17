@@ -90,13 +90,13 @@ template `:=`*(a, b): bool =
     let a = b
     a
 
-proc loop*[T](tokens: Tokens, rule: Rule[T]): seq[T] =
+proc loop*[T](tokens: Tokens, rule: Rule[T]): Option[seq[T]] =
     var values = newSeq[T]()
 
     while value := tokens.next(rule):
         values.add( value )
 
-    return values
+    return some(values)
 
 proc mult*[T](tokens: Tokens, rule: T): Option[seq[T]] =
     if value := tokens.next(rule) :

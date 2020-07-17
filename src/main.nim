@@ -1,11 +1,21 @@
 import strutils
 import source
 import base
-import options
 
 # utility
 
-const rf = "return none()"
+iterator sub(node: Node): Node {.inline.} =
+    let a = node.ns
+    var i = len(a) - 1
+    while i > -1:
+        yield a[i]
+        dec(i)
+
+iterator steps(node: Node): (Node, char) {.inline.} =
+    var name = 'a'
+    for sub in node.sub:
+        yield (sub, name)
+        inc(name)
 
 proc tab(text: string): string =
     text.indent(1, "    ")
@@ -89,10 +99,10 @@ proc FileRule(tokens: Tokens): Node =
 
 #
 
-proc makeSteps(node: Node, nt: string, el: string): string
 proc makeStep(node: Node, name: char, nt: string, el: string): string
-proc makeOpts(node: Node): string
+proc makeOpts(node: Node, name: string): string
 proc getType(node: Node): string
+proc makeTouple(node: Node): string
 
 proc makeStep(node: Node, name: char, nt: string, el: string): string =        
     let operator = node.ns[0].body
@@ -101,19 +111,24 @@ proc makeStep(node: Node, name: char, nt: string, el: string): string =
     var text = ""
 
     if node.ns[1].kind == NonTerminal :
+        echo "\n\n", node.ns[1]
+        # makeTouple(node.ns[1])
+        var tp = ""
+
         text =
-            "proc tmp(tokens: Tokens) : Node =" \
-                makeOpts(node.ns[1]).tab \ ""
+            "proc tmp(tokens: Tokens) : Option[" & tp & "] =" \
+                makeOpts(node.ns[1], tp).tab \ ""
 
         pattname = "tmp"
 
     if operator == "*" :
         return text & 
-            "let " & name & " = tokens.loop(" & pattname & ")" \
-            nt
+            "if " & name & " := tokens.loop(" & pattname & ") :" \
+                nt.tab
     
     if operator == "+" :
         return text &
+
             "if " & name & " := tokens.mult(" & pattname & ") :" \
                 nt.tab \
             el
@@ -129,59 +144,87 @@ proc makeStep(node: Node, name: char, nt: string, el: string): string =
                 nt.tab \
             el
 
-proc makeSteps(node: Node, nt: string, el: string): string =
-    var text = nt
-    var name = 'a' 
+proc makeSteps(node: Node, typeName, el: string): string =
+    var text = "return some(" & typeName & "("
+    for step, name in node.steps:
+        if step.ns[2].kind == Terminal :
+            text \= (step.ns[2].body & " : " & name & ".get,").tab
+    text \= "))"
 
-    for step, i in node.ns.reverse:
+    for step, name in node.steps:
         text = makeStep(step, name, text, el)
-
-        inc(name)
 
     return text
 
-proc makeOpts(node: Node): string = 
-    var text = rf
+proc makeOpts(node: Node, name: string): string = 
+    var text = "return none(" & name & ")"
 
-    for opt, i in node.ns.reverse:
-        text = makeSteps(opt, "return (@[])", text)
+    for opt in node.sub:
+        text = makeSteps(opt, name, text)
     
     return text
 
-proc getType2(node: Node): string =
+proc makeWrap(tp, op: string): string =
+    if op == "*" : return "seq[" & tp & "]"
+    if op == "+" : return "seq[" & tp & "]"
+    if op == "?" : return "Option[" & tp & "]"
+    if op == " " : return tp
+
+proc makeTouple(node: Node): string =
     case node.kind
         of Terminal :
             if node.token.kind == Ident :
                 if node.token.body.isUpperCase:
-                    return "Token"#node.token.body
+                    return "Token"
                 return node.token.body & "Node"
             else:
                 return ""
-        else :
+        of NonTerminal :
+            var els = newSeq[string]()
+            for el in node.sub :
+                let op = el.ns[0].body
+                let tp = makeTouple(el.ns[1]).makeWrap(op)
+
+                if (el.ns[2].kind == Terminal):
+                    els &= el.ns[2].body & " : " & tp
+
+                if (tp != ""):
+                    els &= tp
+
+            if els.len == 0 :
+                return ""
+            if els.len == 1 :
+                return els[0]
+            else:
+                return "(" & els.join(",") & ")"
+        of Failure :
+            return "ERROR2"
+
+proc getType(node: Node): string =
+    case node.kind
+        of Terminal :
+            if node.token.kind == Ident :
+                if node.token.body.isUpperCase:
+                    return "Token"
+                return node.token.body & "Node"
+            else:
+                return ""
+        of NonTerminal :
             # echo node
             var ts = newSeq[string]()
 
-            for opt in node.ns :
-                for el in opt.ns :
-                    let t = getType(el)
+            for opt in node.sub :
+                let t = makeTouple(opt)
 
-                    if t != "" :
-                        ts.add t
+                if t != "()" :
+                    ts.add t
 
             if ts.len == 1 :
                 return ts[0]
 
             return "ERROR"
-            
-proc getType(node: Node): string =
-    let op = node.ns[0].body
-
-    if op == "*" : return "seq[" & getType2(node.ns[1]) & "]"
-    if op == "+" : return "seq[" & getType2(node.ns[1]) & "]"
-    if op == "?" : return "Option[" & getType2(node.ns[1]) & "]"
-    if op == " " : return getType2(node.ns[1])
-
-    return "ERROR"
+        of Failure :
+            return ""
 
 proc makeType(node: Node): string =
     var text = "object"
@@ -189,7 +232,11 @@ proc makeType(node: Node): string =
     for opt in node.ns[1].ns :
         for el in opt.ns :
             if el.ns[2].kind == Terminal:
-                text \= (el.ns[2].body & " : " & getType(el)).tab
+                let op = el.ns[0].body
+                let tp = getType(el.ns[1]).makeWrap(op)
+                let name = el.ns[2].body
+
+                text \= (name & " : " & tp).tab
 
     return text
 
@@ -199,20 +246,24 @@ proc makeFile(node: Node): string =
         "import tokens" \ ""
 
     text \= "type"
-    for rule in node.ns :
+    for rule in node.sub :
         text \= (rule.nodeName & "* = " & makeType(rule)).tab \ ""
 
-    for rule in node.ns :
-        text \= "proc " & rule.procName & "*(tokens: Tokens): " & rule.nodeName
+    for rule in node.sub :
+        text \= "proc " & rule.procName & "*(tokens: Tokens): Option[" & rule.nodeName & "]"
         
     text \= ""
 
-    for rule in node.ns :
-        text \= "proc " & rule.procName & "*(tokens: Tokens): " & rule.nodeName & " ="
-        text \= makeOpts(rule.ns[1]).tab & "\n"
+    for rule in node.sub :
+        text \= "proc " & rule.procName & "*(tokens: Tokens): Option[" & rule.nodeName & "] ="
+        text \= makeOpts(rule.ns[1], rule.nodeName).tab & "\n"
 
     return text
 
 open("out.nim", fmWrite).write( makeFile(
-    FileRule( Tokens(tokens: src, index: 0) )
+  FileRule( Tokens(tokens: src, index: 0) )
 ) )
+
+# open("out.nim", fmWrite).write( makeFile(
+# echo FileRule( Tokens(tokens: src, index: 0) )
+# ) )

@@ -52,14 +52,16 @@ const src* = @[
     (KeyWord, "@"),
     (Ident, "rule"),
     (KeyWord, "="),
+        (StrLit, "\"@\""),
+
         (Ident, "name"),
         (KeyWord, ":"),
-        (StrLit, "\"@\""),
         (Ident, "NAME"),
+
+        (StrLit, "\"=\""),
 
         (Ident, "opts"),
         (KeyWord, ":"),
-        (StrLit, "\"=\""),
         (Ident, "opts"),
 
     (KeyWord, "@"),
@@ -69,6 +71,6 @@ const src* = @[
         (KeyWord, ":"),
         (Ident, "rule"),
         (Operator, "*"),
-        
+
         (Ident, "EOF")
 ]
