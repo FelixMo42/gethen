@@ -1,3 +1,5 @@
+import strutils
+
 type
     # token stuff
 
@@ -198,6 +200,39 @@ proc FileRule(tokens: Tokens): Node =
         return fail("expected eof")
     return fail("you get the gist")
 
+iterator reverse*[T](a: seq[T]): (T, int) {.inline.} =
+    var i = len(a) - 1
+    while i > -1:
+        yield ( a[i], i )
+        dec(i)
+
+proc body(node: Node): string =
+    case node.kind
+        of Terminal :
+            return node.token.body
+        else :
+            return "ERROR"
+
+proc tab(text: string): string =
+    text.indent(1, "    ")
+
+proc `\`(a, b: string): string =
+    if b != "":
+        a & "\n" & b
+    else:
+        a
+
+template `\=`(a, b: string) =
+    a = a \ b
+
+proc ns(node: Node): seq[Node] =
+    case node.kind
+    of NonTerminal:
+        return node.nodes
+    else:
+        echo "NS Error"
+        return @[]
+
 let tokens = @[
     (KeyWord, "@"),
     (Ident, "atom"),
@@ -245,53 +280,80 @@ let tokens = @[
         (Ident, "EOF")
 ].Toks()
 
-proc body(node: Node): string =
+proc makeSteps(node: Node, nt: string, el: string): string
+proc makeStep(node: Node, nt: string, el: string): string
+
+proc makeLoop(node: Node, nt: string, el: string): string =
+    var text = "let values = newSeq[Node]()"
+
     case node.kind
         of Terminal :
-            return node.token.body
-        else :
-            return "ERROR"
-#
+            text \= "for value := tokens.next(" & node.body & ") :"
+            text \=     "values.add value".tab
+        else :                
+            text \= "while true :"
+            
+            var condition = "values.add value" \ "continue"
 
-proc makeStep(node: Node, tab: string) =
+            for step, i in node.ns[0].ns.reverse:
+                if i != 0 :
+                    condition = makeStep(step, condition, "return fail('')")
+                else:
+                    condition = makeStep(step, condition, "break")
+
+            text \= condition.tab()
+    text \= nt
+
+    return text
+            
+
+proc makeStep(node: Node, nt: string, el: string): string =
     case node.kind
         of Terminal :
-            echo tab, "if ", node.body ," :"
+            return
+                "if tokens.next(" & node.body & ") :" \
+                    nt.tab \
+                el
         else :
-            if node.nodes[0].body == "*" :
-                echo tab, "if ", node.nodes[1].body, " :"
+            if node.ns[0].body == "*" :
+                return makeLoop(node.ns[1], nt, el)
             
-            if node.nodes[0].body == "+" :
-                echo tab, "for ", node.nodes[1].body, " :"
+            if node.ns[0].body == "+" :
+                return
+                    "if tokens.mult(" & node.ns[1].body & ") :" \
+                        nt.tab \
+                    el
 
-            if node.nodes[0].body == "?" :
-                echo tab, "for ", node.nodes[1].body, " :"
-            
+            if node.ns[0].body == "?" :
+                return
+                    "tokens.next(" & node.ns[1].body & ")" \
+                    nt
 
-proc makeOpts(node: Node, tab: string) = 
-    for opt in node.nodes:
-        makeStep(opt.nodes[0], tab)
+            # return makeSteps(node, nt, "return")
 
-    echo tab, "return fail('')"
+proc makeSteps(node: Node, nt: string, el: string): string =
+    var text = nt
 
-proc makeFile(node: Node) =
-    for rule in node.nodes :
-        echo "proc ", rule.nodes[0].body, "(tokens: Tokens): Node ="
+    for step, i in node.ns.reverse:
+        text = makeStep(step, text, el)
 
-        makeOpts(rule.nodes[1], "\t")
+    return text
 
-        echo ""
+proc makeOpts(node: Node): string = 
+    var text = "return fail('')"
 
-    # case node.kind:
+    for opt, i in node.ns.reverse:
+        text = makeSteps(opt, "return newNode(@[])", text)
 
-    # of NonTerminal :
-    #     for node in node.nodes:
-    #         print(node, tab & "  ")
+    return text
 
-    # of Terminal :
-    #     echo tab & node.token.body
+proc makeFile(node: Node): string =
+    var text = ""
 
-    # of Failure :
-    #     echo tab & "failure: " & node.msg
+    for rule in node.ns :
+        text \= "proc " & rule.ns[0].body & "(tokens: Tokens): Node ="
+        text \= makeOpts(rule.ns[1]).tab & "\n"
 
-makeFile( FileRule(tokens) )
+    return text
+
+open("out.nim", fmWrite).write( makeFile( FileRule(tokens) ) )
