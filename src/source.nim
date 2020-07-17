@@ -1,0 +1,53 @@
+import base
+
+const src* = @[
+    (KeyWord, "@"),
+    (Ident, "atom"),
+    (KeyWord, "="),
+        (Ident, "NAME"),
+        (KeyWord, "/"),
+        (Ident, "STRING"),
+        (KeyWord, "/"),
+        (StrLit, "'('"),
+        (Ident, "opts"),
+        (StrLit, "')'"),
+
+    (KeyWord, "@"),
+    (Ident, "step"),
+    (KeyWord, "="),
+        (KeyWord, "("),
+            (Ident, "NAME"),
+            (StrLit, "':'"),
+        (KeyWord, ")"),
+        (Operator, "?"),
+        (Ident, "step"),
+        (Ident, "OP"),
+        (Operator, "?"),
+
+    (KeyWord, "@"),
+    (Ident, "opts"),
+    (KeyWord, "="),
+        (Ident, "step"),
+        (Operator, "+"),
+        (KeyWord, "("),
+            (StrLit, "'/'"),
+            (Ident, "step"),
+            (Operator, "+"),
+        (KeyWord, ")"),
+        (Operator, "*"),
+
+    (KeyWord, "@"),
+    (Ident, "rule"),
+    (KeyWord, "="),
+        (StrLit, "'@'"),
+        (Ident, "NAME"),
+        (StrLit, "'='"),
+        (Ident, "opts"),
+
+    (KeyWord, "@"),
+    (Ident, "file"),
+    (KeyWord, "="),
+        (Ident, "rule"),
+        (Operator, "*"),
+        (Ident, "EOF")
+]
