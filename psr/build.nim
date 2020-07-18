@@ -35,8 +35,8 @@ proc makeStep(step: StepNode, name: char, next: string): string =
         pattname = step.pattern.data
     of OPTS :
         text = 
-            "proc tmp() : Option[]" \
-                makeOpts(step.pattern.opts, "tmp").tab \ ""
+            "proc tmp() : Option[TODO]" \
+                makeOpts(step.pattern.opts, "TODO").tab \ ""
 
         pattname = "tmp"
 
@@ -57,13 +57,17 @@ proc makeStep(step: StepNode, name: char, next: string): string =
         next
 
 proc makeOpt(opt: seq[StepNode], rule: string): string =
-    var text = &"return some({rule}())"
     var name = 'a'
+    var text = &"return some({rule}("
+    for step in opt:
+        if step.name.isSome :
+            text \= (step.name.get & " : " & name).tab
+        inc(name)
+    text \= "))"
 
     for step in opt.reverse:
+        dec(name)
         text = makeStep(step, name, text)
-        inc(name)
-
     return text
 
 proc makeOpts(opts: OptsNode, rule: string): string =
@@ -123,10 +127,10 @@ proc makeRuleType(rule: RuleNode, file: FileNode): string =
             if step.name.isSome :
                 text \= (step.name.get & " : " & makeType(step, rule, file).typeWrap(step.operator)).tab
     else :
-        text \= "case kind : " & rule.name.cap & "Kind"
+        text \= ("case kind : " & rule.name.cap & "Kind").tab
 
         for opt in rule.opts :
-            text \= "of c1 :"
+            text \= "of c1 :".tab
 
     return text
 
