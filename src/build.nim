@@ -9,8 +9,7 @@ proc tab(text: string) : string = text.indent(1, "    ")
 
 proc notEmpty(text: string) : bool = text != ""
 
-proc `\`(a, b: string): string = a & "\n" & b
-
+template `\`(a, b: string): string = a & "\n" & b
 template `\=`(a, b: string) = (a = a \ b)
 
 iterator reverse[T](arr: seq[T]): T =
@@ -76,7 +75,7 @@ proc makeOpts(opts: OptsNode, rule: string): string =
 
     return text \ &"return none({rule.cap})"
 
-proc makeType(step: StepNode, file: FileNode): string = 
+proc makeType(step: StepNode, rule: RuleNode, file: FileNode): string = 
     case step.pattern.kind :
     of NAME:
         if file.hasRule(step.pattern.data):
@@ -86,7 +85,7 @@ proc makeType(step: StepNode, file: FileNode): string =
     of BODY:
         return "string"
     of OPTS:
-        return "()"
+        return rule.name.cap & "Node" & step.name.get.cap
 
 proc typeWrap(text: string, operator: string): string = 
     if operator == "*" : return "seq[" & text & "]"
@@ -99,7 +98,7 @@ proc makeTupleTape(step: StepNode): string =
 
 proc makeTuple(opts: OptsNode, name: string): string =
     let tupl = opts[0].map(makeTupleTape).filter(notEmpty).join(",")
-    return &"{name} = ({tupl})"
+    return name & " = " & tupl
 
 proc makeRuleType(rule: RuleNode, file: FileNode): string = 
     var text = ""
@@ -107,15 +106,20 @@ proc makeRuleType(rule: RuleNode, file: FileNode): string =
     for i, opt in rule.opts :
         for j, step in opt :
             if step.name.isSome and step.pattern.kind == OPTS :
-                text \= makeTuple(step.pattern.opts, &"{step.name.get}_{i}_{j}")
+                text \= makeTuple(step.pattern.opts, &"{rule.name.cap}Node{step.name.get.cap}")
                 text \= ""
 
     text \= rule.name.cap & "Node = object"
 
-    for opt in rule.opts :
-        for step in opt :
+    if rule.opts.len == 1 :
+        for step in rule.opts[0] :
             if step.name.isSome :
-                text \= (step.name.get & " : " & makeType(step, file).typeWrap(step.operator)).tab
+                text \= (step.name.get & " : " & makeType(step, rule, file).typeWrap(step.operator)).tab
+    else :
+        text \= "case kind : " & rule.name.cap & "Kind"
+
+        for opt in rule.opts :
+            text \= "of c1 :"
 
     return text
 

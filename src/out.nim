@@ -4,17 +4,25 @@ import tokens
 type
     
     AtomNode = object
+    case kind : AtomKind
+    of c1 :
+    of c1 :
+    of c1 :
 
     
-    name_0_0 = ()
+    StepNodeName = 
     
     StepNode = object
-        name : Option[()]
+        name : Option[StepNodeName]
         step : AtomNode
         op : Option[string]
 
     
+    OptsNodeSteps = 
+    
     OptsNode = object
+        steps : seq[StepNode]
+        steps : seq[OptsNodeSteps]
 
     
     RuleNode = object
@@ -33,13 +41,13 @@ proc fileRule(tokens: Tokens): Option[FileNode]
 
 proc atomRule(tokens: Tokens): Option[AtomNode] =
     var save = 0
-    if a := tokens.next(NAME) :
+    if a := tokens.next(Ident) :
         return some(AtomNode())
-    if a := tokens.next(STRING) :
+    if a := tokens.next(StrLit) :
         return some(AtomNode())
     save = tokens.save()
     if c := tokens.next("(") :
-        if b := tokens.next(case) :
+        if b := tokens.next(opts) :
             if a := tokens.next(")") :
                 return some(AtomNode())
     tokens.load(save)
@@ -60,7 +68,7 @@ proc optsRule(tokens: Tokens): Option[OptsNode] =
 
 proc ruleRule(tokens: Tokens): Option[RuleNode] =
     if d := tokens.next("@") :
-        if c := tokens.next(NAME) :
+        if c := tokens.next(Ident) :
             if b := tokens.next("=") :
                 if a := tokens.next(opts) :
                     return some(RuleNode())

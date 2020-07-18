@@ -1,9 +1,12 @@
-@atom = NAME
-      / STRING
-      / '(' case ')'
-@step = name:(NAME ':')?
+@atom = kind:Ident
+      / body:StrLit
+      / '(' opts:opts ')'
+@step = name:(Ident ':')?
         step:atom
         op:OP?
-@opts = step+ ('/' step+)*
-@rule = '@' name:NAME '=' opts:opts
+@opts = steps:step+
+        steps:('/' step+)*
+@rule = '@'
+        name:Ident '='
+        opts:opts
 @file = rules:rule* EOF
