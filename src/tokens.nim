@@ -3,8 +3,6 @@ import options
 converter toBool*[T](a: Option[T]): bool = a.isSome()
 
 type
-    # token stuff
-
     TokenKind* = enum
         Ident
         StrLit

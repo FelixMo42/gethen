@@ -37,10 +37,10 @@ proc read(file: string, index: var int) : Token =
     if chr in operation :
         return (Operator, chr & "")
     if chr == '\'' :
-        var str = ""
+        var str = "\""
         while (c := file.next(index)) != '\'':
             str = str & c
-        return (StrLit, str)
+        return (StrLit, str & "\"")
 
     if chr in whitespace:
         return (Whitespace, "")
