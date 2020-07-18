@@ -110,4 +110,5 @@ proc atom(tokens: Tokens): Option[AtomNode] =
         return none(AtomNode)
     return none(AtomNode)
 
-const parse* = file
+proc parse*(tokens: seq[Token]): FileNode = 
+    return file(Tokens(tokens: tokens, index: 0)).get

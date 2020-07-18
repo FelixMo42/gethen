@@ -32,7 +32,7 @@ proc makeStep(step: StepNode, name: char, next: string): string =
 
     case step.pattern.kind :
     of NAME , BODY :
-        pattname = step.pattern.data
+        pattname = step.pattern.data & "Rule"
     of OPTS :
         text = 
             "proc tmp() : Option[TODO]" \
@@ -109,7 +109,7 @@ proc makeTupleTape(step: StepNode): string =
 
 proc makeTuple(opts: OptsNode, name: string): string =
     let tupl = opts[0].map(makeTupleTape).filter(notEmpty).join(",")
-    return name & " = " & tupl
+    return name & "* = " & tupl
 
 proc makeRuleType(rule: RuleNode, file: FileNode): string = 
     var text = ""
@@ -120,17 +120,17 @@ proc makeRuleType(rule: RuleNode, file: FileNode): string =
                 text \= makeTuple(step.pattern.opts, &"{rule.name.cap}Node{step.name.get.cap}")
                 text \= ""
 
-    text \= rule.name.cap & "Node = object"
+    text \= rule.name.cap & "Node* = object"
 
     if rule.opts.len == 1 :
         for step in rule.opts[0] :
             if step.name.isSome :
-                text \= (step.name.get & " : " & makeType(step, rule, file).typeWrap(step.operator)).tab
+                text \= (step.name.get & "* : " & makeType(step, rule, file).typeWrap(step.operator)).tab
     else :
-        text \= ("case kind : " & rule.name.cap & "Kind").tab
+        text \= ("case kind* : " & rule.name.cap & "Kind").tab
 
-        for opt in rule.opts :
-            text \= "of c1 :".tab
+        for i, opt in rule.opts :
+            text \= (&"of kind{i} :").tab
 
     return text
 
@@ -143,15 +143,18 @@ proc make*(file: FileNode): string =
 
     for rule in file.rules :
         text \= makeRuleType(rule, file).tab
-        text \= ""
+    text \= ""
 
     for rule in file.rules :
         text \= &"proc {rule.name}Rule(tokens: Tokens): Option[{rule.name.cap}Node]"
-        
     text \= ""
 
     for rule in file.rules :
         text \= &"proc {rule.name}Rule(tokens: Tokens): Option[{rule.name.cap}Node] ="
         text \= makeOpts(rule.opts, rule.name.cap & "Node").tab & "\n"
+
+    text \=
+        "proc parse*(tokens: seq[Token]): FileNode = " \
+            "return fileRule(Tokens(tokens: tokens, index: 0)).get".tab
 
     return text
