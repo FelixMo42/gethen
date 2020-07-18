@@ -1,12 +1,12 @@
-import base
+import tokens
 
-const src* = @[
+let src* = @[
     (KeyWord, "@"),
     (Ident, "atom"),
     (KeyWord, "="),
-        (Ident, "NAME"),
+        (Ident, "Ident"),
         (KeyWord, "/"),
-        (Ident, "STRING"),
+        (Ident, "StrLit"),
         (KeyWord, "/"),
         (StrLit, "\"(\""),
         (Ident, "opts"),
@@ -18,7 +18,7 @@ const src* = @[
         (Ident, "name"),
         (KeyWord, ":"),
         (KeyWord, "("),
-            (Ident, "NAME"),
+            (Ident, "Ident"),
             (StrLit, "\":\""),
         (KeyWord, ")"),
         (Operator, "?"),
@@ -29,7 +29,7 @@ const src* = @[
 
         (Ident, "operator"),
         (KeyWord, ":"),
-        (Ident, "OPERATOR"),
+        (Ident, "Operator"),
         (Operator, "?"),
 
     (KeyWord, "@"),
@@ -56,7 +56,7 @@ const src* = @[
 
         (Ident, "name"),
         (KeyWord, ":"),
-        (Ident, "NAME"),
+        (Ident, "Ident"),
 
         (StrLit, "\"=\""),
 

@@ -2,98 +2,67 @@ import options
 import tokens
 
 type
-    fileNode* = object
-        rules : seq[ruleNode]
+    AtomNode = object
 
-    ruleNode* = object
-        name : Token
-        opts : optsNode
+    StepNode = object
+        name : Option[string]
+        pattern : string
+        operator : Option[string]
 
-    optsNode* = object
-        steps : seq[stepNode]
-        steps : seq[seq[stepNode]]
+    OptsNode = object
+        steps : seq[string]
+        steps : seq[string]
 
-    stepNode* = object
-        name : Option[Token]
-        pattern : atomNode
-        operator : Option[Token]
+    RuleNode = object
+        name : string
+        opts : string
 
-    atomNode* = object
+    FileNode = object
+        rules : seq[string]
 
-proc file*(tokens: Tokens): Option[fileNode]
-proc rule*(tokens: Tokens): Option[ruleNode]
-proc opts*(tokens: Tokens): Option[optsNode]
-proc step*(tokens: Tokens): Option[stepNode]
-proc atom*(tokens: Tokens): Option[atomNode]
+proc atomRule(tokens: Tokens): Option[AtomNode]
+proc stepRule(tokens: Tokens): Option[StepNode]
+proc optsRule(tokens: Tokens): Option[OptsNode]
+proc ruleRule(tokens: Tokens): Option[RuleNode]
+proc fileRule(tokens: Tokens): Option[FileNode]
 
-proc file*(tokens: Tokens): Option[fileNode] =
-    if b := tokens.loop(rule) :
-        if a := tokens.next(EOF) :
-            return some(fileNode(
-                rules : b.get,
-            ))
-        return none(fileNode)
-
-proc rule*(tokens: Tokens): Option[ruleNode] =
-    if d := tokens.next("@") :
-        if c := tokens.next(NAME) :
-            if b := tokens.next("=") :
-                if a := tokens.next(opts) :
-                    return some(ruleNode(
-                        opts : a.get,
-                        name : c.get,
-                    ))
-                return none(ruleNode)
-            return none(ruleNode)
-        return none(ruleNode)
-    return none(ruleNode)
-
-proc opts*(tokens: Tokens): Option[optsNode] =
-    if b := tokens.mult(step) :
-        proc tmp(tokens: Tokens) : Option[] =
-            if b := tokens.next("/") :
-                if a := tokens.mult(step) :
-                    return some((
-                    ))
-                return none()
-            return none()
-        if a := tokens.loop(tmp) :
-            return some(optsNode(
-                steps : a.get,
-                steps : b.get,
-            ))
-    return none(optsNode)
-
-proc step*(tokens: Tokens): Option[stepNode] =
-    proc tmp(tokens: Tokens) : Option[] =
-        if b := tokens.next(NAME) :
-            if a := tokens.next(":") :
-                return some((
-                ))
-            return none()
-        return none()
-    let c = tokens.next(tmp)
-    if b := tokens.next(atom) :
-        let a = tokens.next(OPERATOR)
-        return some(stepNode(
-            operator : a.get,
-            pattern : b.get,
-            name : c.get,
-        ))
-    return none(stepNode)
-
-proc atom*(tokens: Tokens): Option[atomNode] =
-    if a := tokens.next(NAME) :
-        return some(atomNode(
-        ))
-    if a := tokens.next(STRING) :
-        return some(atomNode(
-        ))
+proc atomRule(tokens: Tokens): Option[AtomNode] =
+    var save = 0
+    if a := tokens.next(Ident) :
+        return some(AtomNode())
+    if a := tokens.next(StrLit) :
+        return some(AtomNode())
+    save = tokens.save()
     if c := tokens.next("(") :
         if b := tokens.next(opts) :
             if a := tokens.next(")") :
-                return some(atomNode(
-                ))
-            return none(atomNode)
-        return none(atomNode)
-    return none(atomNode)
+                return some(AtomNode())
+    tokens.load(save)
+    return none(AtomNode)
+
+proc stepRule(tokens: Tokens): Option[StepNode] =
+    let c = tokens.next()
+    if b := tokens.next(atom) :
+        let a = tokens.next(Operator)
+        return some(StepNode())
+    return none(StepNode)
+
+proc optsRule(tokens: Tokens): Option[OptsNode] =
+    if b := tokens.mult(step) :
+        let a = tokens.loop()
+        return some(OptsNode())
+    return none(OptsNode)
+
+proc ruleRule(tokens: Tokens): Option[RuleNode] =
+    if d := tokens.next("@") :
+        if c := tokens.next(Ident) :
+            if b := tokens.next("=") :
+                if a := tokens.next(opts) :
+                    return some(RuleNode())
+    return none(RuleNode)
+
+proc fileRule(tokens: Tokens): Option[FileNode] =
+    let b = tokens.loop(rule)
+    if a := tokens.next(EOF) :
+        return some(FileNode())
+    return none(FileNode)

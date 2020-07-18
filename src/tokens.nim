@@ -6,9 +6,10 @@ type
     # token stuff
 
     TokenKind* = enum
-        NAME
-        STRING
-        OPERATOR
+        Ident
+        StrLit
+        Operator
+        KeyWord
         EOF
 
     Token* = tuple
@@ -16,7 +17,7 @@ type
         body : string
 
     Tokens* = ref object
-        tokens* : seq[Token]
+        tokens* : seq[(TokenKind, string)]
         index*  : int
 
     TokenOutOfBounds* = object of ValueError
@@ -82,7 +83,14 @@ proc next*(tokens: Tokens, kind: TokenKind): Option[Token] =
     return none(Token)
 
 proc next*[T](tokens: Tokens, rule: Rule[T]): Option[T] =
-    return rule(tokens)
+    let save = tokens.save()
+
+    let node = rule(tokens)
+
+    if not node :
+        tokens.load(save)
+
+    return node
 
 # tmp
 
@@ -94,17 +102,23 @@ proc loop*[T](tokens: Tokens, rule: Rule[T]): Option[seq[T]] =
     var values = newSeq[T]()
 
     while value := tokens.next(rule):
-        values.add( value )
+        values.add( value.get )
 
     return some(values)
 
-proc mult*[T](tokens: Tokens, rule: T): Option[seq[T]] =
+proc mult*[T](tokens: Tokens, rule: Rule[T]): Option[seq[T]] =
     if value := tokens.next(rule) :
-        var values = @[ value ]
+        var values = @[ value.get ]
 
         while value := tokens.next(rule):
-            values.add( value )
+            values.add( value.get )
 
         return some(values)
 
     return none(seq[T])
+
+proc body* (node: Option[Token]): Option[string] =
+    if node.isSome :
+        return some(node.get.body)
+    else :
+        return none(string)
