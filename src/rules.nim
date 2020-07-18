@@ -103,6 +103,8 @@ proc atom(tokens: Tokens): Option[AtomNode] =
         if b := tokens.next(opts) :
             if a := tokens.next(")") :
                 return some(AtomNode(
+                    kind : OPTS,
+                    opts : b.get
                 ))
             return none(AtomNode)
         return none(AtomNode)

@@ -9,6 +9,7 @@ type
         Ident
         StrLit
         Operator
+        Whitespace
         KeyWord
         EOF
 

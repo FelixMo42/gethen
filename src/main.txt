@@ -1,9 +1,4 @@
 @atom = NAME
       / STRING
       / '(' case ')'
-@step = name:(NAME ':')?
-        step:atom
-        op:OP?
-@opts = step+ ('/' step+)*
-@rule = '@' NAME '=' opts
-@file = rule EOF
+@step = NAME ':'

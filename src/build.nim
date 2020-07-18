@@ -1,10 +1,13 @@
 import strutils
 import strformat
+import sequtils
 import options
 import rules
 
 proc cap(text: string) : string = text[0].toUpperAscii() & text[1..^1]
 proc tab(text: string) : string = text.indent(1, "    ")
+
+proc notEmpty(text: string) : bool = text != ""
 
 proc `\`(a, b: string): string = a & "\n" & b
 
@@ -15,6 +18,12 @@ iterator reverse[T](arr: seq[T]): T =
     while i > -1 :
         yield arr[i]
         dec(i)
+
+proc hasRule(file: FileNode, rule: string): bool =
+    for r in file.rules :
+        if r.name == rule :
+            return true
+    return false
 
 proc makeStep(step: StepNode, name: char, next: string): string =
     var pattname = ""
@@ -67,9 +76,14 @@ proc makeOpts(opts: OptsNode, rule: string): string =
 
     return text \ &"return none({rule.cap})"
 
-proc makeType(step: StepNode): string = 
+proc makeType(step: StepNode, file: FileNode): string = 
     case step.pattern.kind :
-    of NAME, BODY:
+    of NAME:
+        if file.hasRule(step.pattern.data):
+            return step.pattern.data.cap & "Node"
+        else:
+            return "string"
+    of BODY:
         return "string"
     of OPTS:
         return "()"
@@ -80,13 +94,28 @@ proc typeWrap(text: string, operator: string): string =
     if operator == "?" : return "Option[" & text & "]"
     if operator == " " : return text
 
-proc makeRuleType(rule: RuleNode): string = 
-    var text = "object"
+proc makeTupleTape(step: StepNode): string =
+    return ""
 
-    for opt in rule.opts:
-        for step in opt:
+proc makeTuple(opts: OptsNode, name: string): string =
+    let tupl = opts[0].map(makeTupleTape).filter(notEmpty).join(",")
+    return &"{name} = ({tupl})"
+
+proc makeRuleType(rule: RuleNode, file: FileNode): string = 
+    var text = ""
+
+    for i, opt in rule.opts :
+        for j, step in opt :
+            if step.name.isSome and step.pattern.kind == OPTS :
+                text \= makeTuple(step.pattern.opts, &"{step.name.get}_{i}_{j}")
+                text \= ""
+
+    text \= rule.name.cap & "Node = object"
+
+    for opt in rule.opts :
+        for step in opt :
             if step.name.isSome :
-                text \= (step.name.get & " : " & makeType(step).typeWrap(step.operator)).tab
+                text \= (step.name.get & " : " & makeType(step, file).typeWrap(step.operator)).tab
 
     return text
 
@@ -96,8 +125,9 @@ proc make*(file: FileNode): string =
         "import tokens" \ ""
 
     text \= "type"
+
     for rule in file.rules :
-        text \= (rule.name.cap & "Node = " & makeRuleType(rule) ).tab
+        text \= makeRuleType(rule, file).tab
         text \= ""
 
     for rule in file.rules :

@@ -2,23 +2,32 @@ import options
 import tokens
 
 type
+    
     AtomNode = object
 
+    
+    name_0_0 = ()
+    
     StepNode = object
-        name : Option[string]
-        pattern : string
+        name : Option[()]
+        pattern : AtomNode
         operator : Option[string]
 
+    
+    steps_0_1 = ()
+    
     OptsNode = object
-        steps : seq[string]
-        steps : seq[string]
+        steps : seq[StepNode]
+        steps : seq[()]
 
+    
     RuleNode = object
         name : string
-        opts : string
+        opts : OptsNode
 
+    
     FileNode = object
-        rules : seq[string]
+        rules : seq[RuleNode]
 
 proc atomRule(tokens: Tokens): Option[AtomNode]
 proc stepRule(tokens: Tokens): Option[StepNode]
@@ -41,7 +50,7 @@ proc atomRule(tokens: Tokens): Option[AtomNode] =
     return none(AtomNode)
 
 proc stepRule(tokens: Tokens): Option[StepNode] =
-    let c = tokens.next()
+    let c = tokens.next(tmp)
     if b := tokens.next(atom) :
         let a = tokens.next(Operator)
         return some(StepNode())
@@ -49,7 +58,7 @@ proc stepRule(tokens: Tokens): Option[StepNode] =
 
 proc optsRule(tokens: Tokens): Option[OptsNode] =
     if b := tokens.mult(step) :
-        let a = tokens.loop()
+        let a = tokens.loop(tmp)
         return some(OptsNode())
     return none(OptsNode)
 
