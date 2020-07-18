@@ -4,6 +4,8 @@ import sequtils
 import options
 import rules
 
+proc makeOpts(opts: OptsNode, rule: string): string
+
 proc cap(text: string) : string = text[0].toUpperAscii() & text[1..^1]
 proc tab(text: string) : string = text.indent(1, "    ")
 
@@ -26,26 +28,31 @@ proc hasRule(file: FileNode, rule: string): bool =
 
 proc makeStep(step: StepNode, name: char, next: string): string =
     var pattname = ""
+    var text = ""
 
     case step.pattern.kind :
     of NAME , BODY :
         pattname = step.pattern.data
     of OPTS :
+        text = 
+            "proc tmp() : Option[]" \
+                makeOpts(step.pattern.opts, "tmp").tab \ ""
+
         pattname = "tmp"
 
-    if step.operator == " " : return
+    if step.operator == " " : return text &
         &"if {name} := tokens.next({pattname}) :" \
             next.tab
 
-    if step.operator == "+" : return
+    if step.operator == "+" : return text &
         &"if {name} := tokens.mult({pattname}) :" \
             next.tab
 
-    if step.operator == "*" : return
+    if step.operator == "*" : return text &
         &"let {name} = tokens.loop({pattname})" \
         next
 
-    if step.operator == "?" : return
+    if step.operator == "?" : return text &
         &"let {name} = tokens.next({pattname})" \
         next
 

@@ -54,6 +54,11 @@ proc atomRule(tokens: Tokens): Option[AtomNode] =
     return none(AtomNode)
 
 proc stepRule(tokens: Tokens): Option[StepNode] =
+    proc tmp() : Option[]
+        if b := tokens.next(Ident) :
+            if a := tokens.next(":") :
+                return some(tmp())
+        return none(Tmp)
     let c = tokens.next(tmp)
     if b := tokens.next(atom) :
         let a = tokens.next(OP)
@@ -62,6 +67,11 @@ proc stepRule(tokens: Tokens): Option[StepNode] =
 
 proc optsRule(tokens: Tokens): Option[OptsNode] =
     if b := tokens.mult(step) :
+        proc tmp() : Option[]
+            if b := tokens.next("/") :
+                if a := tokens.mult(step) :
+                    return some(tmp())
+            return none(Tmp)
         let a = tokens.loop(tmp)
         return some(OptsNode())
     return none(OptsNode)
