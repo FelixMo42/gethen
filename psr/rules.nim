@@ -1,4 +1,5 @@
 import options
+import stream
 import tokens
 
 type
@@ -111,4 +112,8 @@ proc atom(tokens: Tokens): Option[AtomNode] =
     return none(AtomNode)
 
 proc parse*(tokens: seq[Token]): FileNode = 
-    return file(Tokens(tokens: tokens, index: 0)).get
+    return file(Tokens(
+        list  : tokens,
+        index : 0,
+        final : (EOF, "EOF")
+    )).get
