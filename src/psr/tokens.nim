@@ -1,9 +1,9 @@
 import sequtils
-import ../psr/stream
+import ../../gen/stream
 
 const eof = '\x00'
 
-let keywords = @['(', ')', ':']
+let keywords = @['(', ')', '[', ']',':']
 let whitespace = @[' ', '\t', '\r', '\n']
 let taken = @[eof, '\'', '"'] & keywords & whitespace
 

@@ -1,15 +1,15 @@
 import options
 import tokens
-import ../psr/stream
+import ../../gen/stream
 
 type
+    ParamNode = ref object
+        name : string
+
     ValueKind* = enum 
         MakeFunc
         CallFunc
         Variable
-
-    ParamNode = ref object
-        name : string
 
     ValueNode* = ref object
         case kind* : ValueKind
@@ -44,12 +44,6 @@ proc next*(inputs: Tokens, kind: TokenKind): Option[Token] =
 
     return none(Token)
 
-proc body*(node: Option[Token]): Option[string] =
-    if node.isSome :
-        return some(node.get.body)
-    else :
-        return none(string)
-
 #
 
 proc paramRule(tokens: Tokens): Option[ParamNode] =
@@ -60,17 +54,19 @@ proc paramRule(tokens: Tokens): Option[ParamNode] =
     return none(ParamNode)
 
 proc valueRule(tokens: Tokens): Option[ValueNode] =
-    var save =  tokens.save()
+    var save = tokens.save()
 
-    if a := tokens.next(":") :
-        let b = tokens.next(Name)
-        if c := tokens.next("(") :
-            let d = tokens.loop(paramRule)
-            if e := tokens.next(")") :
-                if f := tokens.next(valueRule) :
-                    return some(ValueNode(
-                        kind : MakeFunc
-                    ))
+    if tokens.next("(") :
+        if tokens.next("[") :
+            let params = tokens.loop(paramRule)
+            if tokens.next("]") :
+                if tokens.next(")") :
+                    if value := tokens.next(valueRule) :
+                        return some(ValueNode(
+                            kind : MakeFunc,
+                            params : params.get,
+                            value  : value.get
+                        ))
     
     tokens.load(save)
 
@@ -79,7 +75,9 @@ proc valueRule(tokens: Tokens): Option[ValueNode] =
             let c = tokens.loop(valueRule)
             if d := tokens.next(")") :
                 return some(ValueNode(
-                    kind : CallFunc
+                    kind : CallFunc,
+                    fn : b.get,
+                    args : c.get
                 ))
     
     tokens.load(save)

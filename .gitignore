@@ -2,6 +2,6 @@
 **.log
 
 # dont include binaries
-psr/main
+gen/main
 src/main
-lsp/lsp
+lsp/main
