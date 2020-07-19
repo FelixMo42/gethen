@@ -74,15 +74,13 @@ proc makeOpts(opts: OptsNode, rule: string): string =
     if opts.len == 1 :
         return makeOpt(opts[0], rule) \ &"return none({rule.cap})"
 
-    var text = "var save = 0"
+    var text = "var save = tokens.save()"
 
+    var blks = newSeq[string]()
     for opt in opts:
-        if opt.len == 1:
-            text \= makeOpt(opt, rule)
-        else:
-            text \= "save = tokens.save()"
-            text \= makeOpt(opt, rule)
-            text \= "tokens.load(save)"
+        blks.add makeOpt(opt, rule)
+
+    text \= blks.join("tokens.load(save)")
 
     return text \ &"return none({rule.cap})"
 

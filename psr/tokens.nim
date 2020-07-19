@@ -22,7 +22,7 @@ proc next*(inputs: Tokens, body: string): Option[Token] =
     let input = inputs.peek()
 
     if input.body == body :
-        inputs.next()
+        inputs.skip()
 
         return some(input)
 
@@ -32,7 +32,7 @@ proc next*(inputs: Tokens, kind: TokenKind): Option[Token] =
     let input = inputs.peek()
 
     if input.kind == kind :
-        inputs.next()
+        inputs.skip()
 
         return some(input)
 

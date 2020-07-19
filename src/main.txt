@@ -1,4 +1,0 @@
-@value = ':' name? '(' name* ')' value
-       / '(' value value* ')'
-       / name
-@file = value EOF

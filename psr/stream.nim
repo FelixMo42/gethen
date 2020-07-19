@@ -14,9 +14,15 @@ type
 
 converter toBool*[I](a: Option[I]): bool = a.isSome()
 
+# template `:=`*[T](a: untyped, b: T): T =
+#     let a = b
+#     a
+
+
 template `:=`*(a, b): bool =
     let a = b
     a
+
 
 # stream functions
 
@@ -29,7 +35,7 @@ proc peek*[I](inputs: Inputs[I]): I =
     
     raise newException(StreamOutOfBounds, "failed to recognize the end of steam")
 
-proc next*[I](inputs: Inputs[I]) =
+proc skip*[I](inputs: Inputs[I]) =
     inputs.index += 1
 
 proc read*[I](inputs: Inputs[I]): I =
@@ -37,7 +43,7 @@ proc read*[I](inputs: Inputs[I]): I =
     let input = inputs.peek()
 
     # increment are location in the list
-    inputs.next()
+    inputs.skip()
 
     # return the current token
     return input
@@ -47,6 +53,16 @@ proc save*[I](inputs: Inputs[I]): int =
 
 proc load*[I](inputs: Inputs[I], index: int) =
     inputs.index = index
+
+proc next*[I](inputs: Inputs[I], expected: I): Option[I] =
+    let input = inputs.peek()
+
+    if input == expected :
+        inputs.next()
+
+        return some(input)
+
+    return none(I)
 
 proc next*[I, R](inputs: Inputs[I], rule: Rule[I, R]): Option[R] =
     let save = inputs.save()

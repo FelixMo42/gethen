@@ -1,4 +1,4 @@
-import ../psr/tokens
+import sequtils
 import ../psr/stream
 
 const eof = '\x00'
@@ -8,26 +8,26 @@ let whitespace = @[' ', '\t', '\r', '\n']
 let taken = @[eof, '\'', '"'] & keywords & whitespace
 
 type
-    FileS = Stream[string]
+    TokenKind* = enum
+        Name
+        KeyWord
+        Whitespace
+        
+        StrLit
+        IntLit
 
-proc next(file: string, index: var int) : char =
-    if index == file.len :
-        return eof
+        EOF
 
-    let chr = file[index]
+    Token* = tuple
+        kind : TokenKind
+        body : string
 
-    index += 1
+    Tokens* = Inputs[Token]
 
-    return chr
+    FileStream = Inputs[char]
 
-proc peek(file: string, index: var int) : char =
-    if index == file.len :
-        return eof
-
-    return file[index]
-
-proc read(file: string, index: var int) : Token =
-    let chr = file.next(index)
+proc eat(file: FileStream) : Token =
+    let chr = file.read()
 
     if chr == eof :
         return (EOF, "")
@@ -35,27 +35,31 @@ proc read(file: string, index: var int) : Token =
         return (KeyWord, chr & "")
     if chr == '\'' :
         var str = "\""
-        while (c := file.next(index)) != '\'':
-            str = str & c
+        while file.peek() != '\'' :
+            str = str & file.read()
+        file.skip()
         return (StrLit, str & "\"")
 
     if chr in whitespace:
         return (Whitespace, "")
     
     var str = chr & ""
-    while not (file.peek(index) in taken):
-        str = str & file.next(index)
+    while not (file.peek() in taken):
+        str = str & file.read()
 
-    return (Ident, str)
+    return (Name, str)
 
 proc tokenize*(file: string): seq[Token] =
-    var index = 0
     var tokens = newSeq[Token]()
 
-    # var max = 100
+    let stream = FileStream(
+        list  : file.toSeq,
+        index : 0,
+        final : eof
+    )
 
     while true :
-        let token = read(file, index)
+        let token = stream.eat()
 
         if token.kind == EOF :
             break

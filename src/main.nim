@@ -1,7 +1,3 @@
-import tokenizer
-import ../psr/rules
-import ../psr/build
+import parser
 
-let ast = parse( tokenize( open("main.txt", fmRead).readAll() ) )
-
-open("out.nim", fmWrite).write( make(ast) )
+echo parse( open("test.txt", fmRead).readAll() ).kind
