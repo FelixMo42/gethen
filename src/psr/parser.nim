@@ -1,10 +1,11 @@
 import options
 import tokens
+import parseutils
 import ../../gen/stream
 
 type
     ParamNode* = ref object
-        name* : string
+        name* : Token
         kind* : ValueNode
 
     ValueKind* = enum 
@@ -25,13 +26,16 @@ type
             fn* : ValueNode
             args* : seq[ValueNode]
         of Variable :
-            name* : string
+            name* : Token
         of StrValue :
-            strv* : string
+            strv* : Token
         of IntValue :
             intv* : int
 
 #        
+
+converter toString*(token: Token): string =
+    return token.body
 
 proc next*(inputs: Tokens, body: string): Option[Token] =
     let input = inputs.peek()
@@ -63,7 +67,7 @@ proc paramRule(tokens: Tokens): Option[ParamNode] =
     if kind := tokens.next(valueRule) :
         if name := tokens.next(Name) :
             return some(ParamNode(
-                name : name.get.body,
+                name : name.get,
                 kind : kind.get
             ))
     return none(ParamNode)
@@ -99,16 +103,31 @@ proc valueRule(tokens: Tokens): Option[ValueNode] =
     
     tokens.load(save)
 
-    if a := tokens.next(Name) :
-        return some(ValueNode(
-            kind: Variable,
-            name: a.get.body
-        ))
-
     if a := tokens.next(StrLit) :
         return some(ValueNode(
             kind: StrValue,
-            strv: a.get.body
+            strv: a.get
+        ))
+
+    if a := tokens.next(IntLit) :
+        var num : int
+        let res = parseInt(a.get.body, num)
+        if res != 0 :
+            return some(ValueNode(
+                kind: IntValue,
+                intv: num
+            )) 
+        else :
+            echo "int overflow!"
+            return some(ValueNode(
+                kind: IntValue,
+                intv: 0
+            )) 
+
+    if a := tokens.next(Name) :
+        return some(ValueNode(
+            kind: Variable,
+            name: a.get
         ))
     
     return none(ValueNode)

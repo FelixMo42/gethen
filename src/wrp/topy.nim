@@ -13,19 +13,24 @@ type Script = ref object
 proc tab(txt: string) : string = txt.indent(1, "   ")
 
 proc newScript(): Script = 
-    var c = 'a'
-    return Script(funcs: newSeq[string](), names: c)
-
-proc next(s: Script): char =
-    inc(s.names)
-    return s.names
+    return Script(funcs: newSeq[string](), names: 'a')
 
 proc make*(node: ValueNode, script: Script): string =
     case node.kind :
     of MakeFunc :
+        # get an unused function name
         let name = script.names
+
+        # move on to next func name
         inc(script.names)
-        script.funcs.add(&"def {name}({node.params.map(n => n.name).join(comma)}) :\n" & ("return " & make(node.value, script)).tab())
+
+        # add the function to the list of functions for this scope
+        script.funcs.add(
+            &"def {name}({node.params.map(n => n.name.body).join(comma)}) :\n" &
+            ("return " & make(node.value, script)).tab()
+        )
+
+        # return the name of the functions
         return name & ""
     of CallFunc :
         let fn = make(node.fn, script)

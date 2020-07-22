@@ -135,7 +135,7 @@ proc makeRuleType(rule: RuleNode, file: FileNode): string =
 proc make*(file: FileNode): string =
     var text =
         "import options" \
-        "import tokens" \ ""
+        "import stream" \ ""
 
     text \= "type"
 

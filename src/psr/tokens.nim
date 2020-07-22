@@ -1,4 +1,5 @@
 import sequtils
+import strutils
 import ../../gen/stream
 
 const eof = '\x00'
@@ -26,13 +27,35 @@ type
 
     FileStream = Inputs[char]
 
+proc isInt(txt: string): bool =
+    for c in txt:
+        if not c.isDigit() :
+            return false
+    return true
+
+proc isFloat(txt: string): bool =
+    var hasDot = false
+    for c in txt:
+        if c == '.' :
+            if hasDot :
+                return false
+            else :
+                hasDot = true 
+        elif not c.isDigit() :
+            return false
+
+    return true
+
 proc eat(file: FileStream) : Token =
     let chr = file.read()
 
-    if chr == eof :
-        return (EOF, "")
-    if chr in keywords :
-        return (KeyWord, chr & "")
+    # reached end of file
+    if chr == eof : return (EOF, "")
+
+    # this is specal punctuation
+    if chr in keywords : return (KeyWord, chr & "")
+
+    # start of a string
     if chr == '\'' :
         var str = "\""
         while file.peek() != '\'' :
@@ -40,12 +63,19 @@ proc eat(file: FileStream) : Token =
         file.skip()
         return (StrLit, str & "\"")
 
-    if chr in whitespace:
-        return (Whitespace, "")
+    # just some boring whitespace
+    if chr in whitespace : return (Whitespace, "")
     
     var str = chr & ""
     while not (file.peek() in taken):
         str = str & file.read()
+
+    if isInt(str) :
+        return (IntLit, str)
+
+    if isFloat(str) :
+        echo "ERROR floats arent suported yet"
+        return (IntLit, str)
 
     return (Name, str)
 

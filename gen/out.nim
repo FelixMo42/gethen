@@ -1,5 +1,5 @@
 import options
-import tokens
+import stream
 
 type
     

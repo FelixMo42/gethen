@@ -15,12 +15,27 @@ type
         vars : TableRef[string, Var]
         prev : Scope
 
+    # InheritanceTree = TableRef[string, seq[string]]
+
 # some basic value types
 
-let i32* = Type(base: "i32")
-let f32* = Type(base: "f32")
-let f64* = Type(base: "f64")
-let str* = Type(base: "str")
+let inheritanceTree = newTable[string, seq[string]]()
+
+proc newType(base: string, parents: seq[string]=newSeq[string]()): Type =
+    inheritanceTree[base] = parents
+
+    return Type(base: base)
+
+let i64* = newType("i64")
+let i32* = newType("i32")
+let i16* = newType("i16")
+
+let f64* = newType("i32")
+let f32* = newType("i32")
+
+let str* = newType("str")
+
+let arr* = newType("arr")
 
 # some usefull logging functions
 
@@ -130,6 +145,7 @@ proc getVar(value: ValueNode, scope: Scope): Var =
         if value.args.len != params.len :
             echo Err, "unexpected number of arguments"
 
+        # make sure the args are all of the right type
         for i in 0..<min(value.args.len, params.len):
             if not getVar(value.args[i], scope).kind.fits( params[i] ) :
                 echo Err, "wrong paramater tye"
@@ -148,14 +164,18 @@ var baseScope = newTable[string, Var]()
 
 baseScope.add("int", Var(kind: i32))
 baseScope.add("+"  , Var(kind: Type(base: "func", args: @[i32, i32, i32])))
-baseScope.add("1"  , Var(kind: i32))
 
 # echo ast
 
 # echo getVar(ast, Scope(vars: baseScope))
-# discard getVar(ast, Scope(vars: baseScope))
+discard getVar(ast, Scope(vars: baseScope))
 
-# import wrp/tojs
-import wrp/topy
+const target = "py"
 
-echo toPy(ast)
+when target == "py" :
+    import wrp/topy
+    echo toPy(ast)
+
+when target == "js" :
+    import wrp/tojs
+    echo toJs(ast)
