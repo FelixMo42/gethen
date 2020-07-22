@@ -155,6 +155,7 @@ baseScope.add("1"  , Var(kind: i32))
 # echo getVar(ast, Scope(vars: baseScope))
 # discard getVar(ast, Scope(vars: baseScope))
 
-import wrp/toJs
+# import wrp/tojs
+import wrp/topy
 
-echo toJs(ast)
+echo toPy(ast)
