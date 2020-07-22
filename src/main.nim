@@ -15,6 +15,13 @@ type
         vars : TableRef[string, Var]
         prev : Scope
 
+# some basic value types
+
+let i32* = Type(base: "i32")
+let f32* = Type(base: "f32")
+let f64* = Type(base: "f64")
+let str* = Type(base: "str")
+
 # some usefull logging functions
 
 const
@@ -139,15 +146,15 @@ let ast = parse( open("test.txt", fmRead).readAll() )
 
 var baseScope = newTable[string, Var]()
 
-let i32* = Type(base: "i32")
-let f32* = Type(base: "f32")
-let f64* = Type(base: "f64")
-
 baseScope.add("int", Var(kind: i32))
-baseScope.add("+", Var(kind: Type(base: "func", args: @[i32, i32, i32])))
-baseScope.add("1", Var(kind: i32))
+baseScope.add("+"  , Var(kind: Type(base: "func", args: @[i32, i32, i32])))
+baseScope.add("1"  , Var(kind: i32))
 
 # echo ast
 
 # echo getVar(ast, Scope(vars: baseScope))
-discard getVar(ast, Scope(vars: baseScope))
+# discard getVar(ast, Scope(vars: baseScope))
+
+import wrp/toJs
+
+echo toJs(ast)

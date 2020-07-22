@@ -3,7 +3,7 @@ import tokens
 import ../../gen/stream
 
 type
-    ParamNode = ref object
+    ParamNode* = ref object
         name* : string
         kind* : ValueNode
 
