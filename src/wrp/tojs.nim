@@ -1,4 +1,4 @@
-import ../psr/parser
+import src/psr/parser
 import strformat
 import sequtils
 import strutils

@@ -1,7 +1,7 @@
 import options
 import parseutils
-import ../../gen/stream
-import ../report
+import gen/stream
+import src/report
 import tokens
 
 type
