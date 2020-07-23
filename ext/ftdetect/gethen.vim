@@ -1,0 +1,1 @@
+autocmd BufNewFile,BufReadPost *.gth setfiletype gethen
