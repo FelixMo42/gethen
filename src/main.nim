@@ -2,6 +2,7 @@ import psr/parser
 import tables
 import sequtils
 import strutils
+import report
 
 type
     Type = ref object
@@ -38,9 +39,6 @@ let str* = newType("str")
 let arr* = newType("arr")
 
 # some usefull logging functions
-
-const
-    Err = "\e[31mERROR\e[0m "
 
 proc tab(txt: string) : string = txt.indent(1, "   ")
 
@@ -96,7 +94,7 @@ proc get(scope: Scope, name: string): Var =
     if scope.prev != nil :
         return scope.prev.get(name)
 
-    echo Err, "undefined variable"
+    fail "undefined variable"
 
     return Var(kind: Type(base: "fault"))
 
@@ -131,7 +129,7 @@ proc getVar(value: ValueNode, scope: Scope): Var =
 
         # if the declared return type and real return type dont match, error
         if not value.kind.fits(ret) :
-            echo Err, "real return type does not match declared return type!"
+            fail "real return type does not match declared return type!"
 
         return Var(kind: kind)
     of CallFunc :
@@ -143,12 +141,12 @@ proc getVar(value: ValueNode, scope: Scope): Var =
 
         # check if they have the same number of arguments
         if value.args.len != params.len :
-            echo Err, "unexpected number of arguments"
+            fail "unexpected number of arguments"
 
         # make sure the args are all of the right type
         for i in 0..<min(value.args.len, params.len):
             if not getVar(value.args[i], scope).kind.fits( params[i] ) :
-                echo Err, "wrong paramater tye"
+                fail "wrong paramater type"
 
         return Var(kind: fn.kind.args[^1])
     of Variable :
@@ -158,6 +156,8 @@ proc getVar(value: ValueNode, scope: Scope): Var =
     of IntValue :
         return Var(kind: Type(base: "i32"))
 
+#
+
 let ast = parse( open("test.txt", fmRead).readAll() )
 
 var baseScope = newTable[string, Var]()
@@ -165,17 +165,14 @@ var baseScope = newTable[string, Var]()
 baseScope.add("int", Var(kind: i32))
 baseScope.add("+"  , Var(kind: Type(base: "func", args: @[i32, i32, i32])))
 
-# echo ast
-
-# echo getVar(ast, Scope(vars: baseScope))
 discard getVar(ast, Scope(vars: baseScope))
 
-const target = "py"
+# const target = "py"
 
-when target == "py" :
-    import wrp/topy
-    echo toPy(ast)
+# when target == "py" :
+#     import wrp/topy
+#     echo toPy(ast)
 
-when target == "js" :
-    import wrp/tojs
-    echo toJs(ast)
+# when target == "js" :
+#     import wrp/tojs
+#     echo toJs(ast)

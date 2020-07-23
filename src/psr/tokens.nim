@@ -9,6 +9,9 @@ let whitespace = @[' ', '\t', '\r', '\n']
 let taken = @[eof, '\'', '"'] & keywords & whitespace
 
 type
+    Location = (int, int)
+    Range = (Location, Location)
+
     TokenKind* = enum
         Name
         KeyWord
@@ -22,6 +25,7 @@ type
     Token* = tuple
         kind : TokenKind
         body : string
+        # spot : Range
 
     Tokens* = Inputs[Token]
 

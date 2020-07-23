@@ -1,7 +1,8 @@
 import options
-import tokens
 import parseutils
 import ../../gen/stream
+import ../report
+import tokens
 
 type
     ParamNode* = ref object
@@ -118,7 +119,7 @@ proc valueRule(tokens: Tokens): Option[ValueNode] =
                 intv: num
             )) 
         else :
-            echo "int overflow!"
+            fail "int overflow!"
             return some(ValueNode(
                 kind: IntValue,
                 intv: 0
@@ -134,8 +135,8 @@ proc valueRule(tokens: Tokens): Option[ValueNode] =
 
 proc fileRule(tokens: Tokens): Option[ValueNode] =
     if a := tokens.next(valueRule) :
-        if b := tokens.next(EOF) :
-            return some(a.get)
+        # if tokens.next(EOF) :
+        return some(a.get)
     return none(ValueNode)
 
 proc parse*(tokens: seq[Token]): ValueNode = 
