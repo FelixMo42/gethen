@@ -1,7 +1,9 @@
-import psr/parser
 import tables
 import sequtils
 import strutils
+import strformat
+import psr/parser
+import psr/tokens
 import report
 
 type
@@ -87,16 +89,29 @@ proc fits(a: Type, b: Type): bool =
 
     return true
 
-proc get(scope: Scope, name: string): Var =
+proc get(scope: Scope, name: Token): Var =
     if scope.vars.hasKey(name) :
         return scope.vars[name]
 
     if scope.prev != nil :
         return scope.prev.get(name)
 
-    fail "undefined variable"
+    fail name.spot, "undefined variable"
 
     return Var(kind: Type(base: "fault"))
+
+proc spot(value: ValueNode): Spot =
+    case value.kind :
+    of MakeFunc :
+        return ((0,0),(0,0))
+    of CallFunc :
+        return ((0,0),(0,0))
+    of Variable :
+        return ((0,0),(0,0))
+    of StrValue :
+        return ((0,0),(0,0))
+    of IntValue :
+        return ((0,0),(0,0))
 
 proc getVar(value: ValueNode, scope: Scope): Var =
     case value.kind :
@@ -125,11 +140,11 @@ proc getVar(value: ValueNode, scope: Scope): Var =
         kind.args.add( ret )
 
         # get the type that is being returned by the function
-        let value = getVar(value.value, funcScope)
+        let output = getVar(value.value, funcScope)
 
         # if the declared return type and real return type dont match, error
-        if not value.kind.fits(ret) :
-            fail "real return type does not match declared return type!"
+        if not output.kind.fits(ret) :
+            fail value.ret.spot, "real return type does not match declared return type!"
 
         return Var(kind: kind)
     of CallFunc :
@@ -140,13 +155,13 @@ proc getVar(value: ValueNode, scope: Scope): Var =
         let params = fn.kind.args[0..^2]
 
         # check if they have the same number of arguments
-        if value.args.len != params.len :
-            fail "unexpected number of arguments"
+        # if value.args.len != params.len :
+        #     fail &"expected {params.len} arguments, got {value.args.len}"
 
         # make sure the args are all of the right type
-        for i in 0..<min(value.args.len, params.len):
-            if not getVar(value.args[i], scope).kind.fits( params[i] ) :
-                fail "wrong paramater type"
+        # for i in 0..<min(value.args.len, params.len):
+        #     if not getVar(value.args[i], scope).kind.fits( params[i] ) :
+        #         fail "wrong paramater type"
 
         return Var(kind: fn.kind.args[^1])
     of Variable :
@@ -163,7 +178,7 @@ let ast = parse( open("test.txt", fmRead).readAll() )
 var baseScope = newTable[string, Var]()
 
 baseScope.add("int", Var(kind: i32))
-baseScope.add("+"  , Var(kind: Type(base: "func", args: @[i32, i32, i32])))
+baseScope.add("+"  , Var(kind: Type(base: "func", args: @[i32, i32, i64])))
 
 discard getVar(ast, Scope(vars: baseScope))
 

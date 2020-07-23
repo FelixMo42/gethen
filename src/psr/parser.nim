@@ -6,7 +6,7 @@ import tokens
 
 type
     ParamNode* = ref object
-        name* : Token
+        name* : string
         kind* : ValueNode
 
     ValueKind* = enum 
@@ -29,7 +29,7 @@ type
         of Variable :
             name* : Token
         of StrValue :
-            strv* : Token
+            strv* : string
         of IntValue :
             intv* : int
 
@@ -69,7 +69,8 @@ proc paramRule(tokens: Tokens): Option[ParamNode] =
         if name := tokens.next(Name) :
             return some(ParamNode(
                 name : name.get,
-                kind : kind.get
+                kind : kind.get,
+                # spot : 
             ))
     return none(ParamNode)
 
@@ -107,7 +108,7 @@ proc valueRule(tokens: Tokens): Option[ValueNode] =
     if a := tokens.next(StrLit) :
         return some(ValueNode(
             kind: StrValue,
-            strv: a.get
+            strv: a.get.body,
         ))
 
     if a := tokens.next(IntLit) :
@@ -116,33 +117,36 @@ proc valueRule(tokens: Tokens): Option[ValueNode] =
         if res != 0 :
             return some(ValueNode(
                 kind: IntValue,
-                intv: num
+                intv: num,
+                # spot: a.get.spot
             )) 
         else :
-            fail "int overflow!"
+            fail a.get.spot, "int overflow!"
             return some(ValueNode(
                 kind: IntValue,
-                intv: 0
+                intv: 0,
+                # spot: a.get.spot
             )) 
 
     if a := tokens.next(Name) :
         return some(ValueNode(
             kind: Variable,
-            name: a.get
+            name: a.get,
+            # spot: a.get.spot
         ))
     
     return none(ValueNode)
 
 proc fileRule(tokens: Tokens): Option[ValueNode] =
     if a := tokens.next(valueRule) :
-        # if tokens.next(EOF) :
-        return some(a.get)
+        if tokens.next(EOF) :
+            return some(a.get)
     return none(ValueNode)
 
 proc parse*(tokens: seq[Token]): ValueNode = 
     return fileRule(Tokens(
         list  : tokens,
-        final : (EOF, "EOF"),
+        final : (EOF, "EOF", ((0,0), (0,0))),
         index : 0
     )).get
 

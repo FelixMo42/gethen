@@ -1,16 +1,33 @@
+import strformat
+
 const
-    failLabel = "\e[31mFAIL\e[0m "
-    warnLabel = "\e[33mWARN\e[0m "
-    infoLabel = "\e[36mINFO\e[0m "
+    ansiReset = "\e[0m"
+    ansiBold = "\e[1m"
 
-proc fail*(txt: string) = 
-    echo failLabel, txt
+type
+    LogLevel = enum
+        FAIL = "\e[31mFAIL\e[0m "
+        WARN = "\e[33mWARN\e[0m "
+        INFO = "\e[36mINFO\e[0m "
 
-proc warn*(txt: string) =
-    echo warnLabel, txt
+    Spot = ((int, int), (int, int))
 
-proc info*(txt: string) =
-    echo infoLabel, txt
+proc link(spot: Spot): string =
+    # let file = "~/Documents/gethen/src/test.txt"
+    let file = "./test.txt"
+    let line = spot[0][0]
+    let colm = spot[0][1]
+    return &"{ansiBold}{file}({line}, {colm}){ansiReset} "
+
+proc fail*(spot: Spot, txt: string) = 
+    # echo link(spot)
+    echo FAIL, link(spot), txt
+
+proc warn*(spot: Spot, txt: string) =
+    echo WARN, txt
+
+proc info*(spot: Spot, txt: string) =
+    echo INFO, txt
 
 # fail "123"
 # warn "456"

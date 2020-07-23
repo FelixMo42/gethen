@@ -1,6 +1,7 @@
 import sequtils
 import strutils
 import ../../gen/stream
+import ../report
 
 const eof = '\x00'
 
@@ -9,8 +10,8 @@ let whitespace = @[' ', '\t', '\r', '\n']
 let taken = @[eof, '\'', '"'] & keywords & whitespace
 
 type
-    Location = (int, int)
-    Range = (Location, Location)
+    Pos* = (int, int)
+    Spot* = (Pos, Pos)
 
     TokenKind* = enum
         Name
@@ -25,7 +26,7 @@ type
     Token* = tuple
         kind : TokenKind
         body : string
-        # spot : Range
+        spot : Spot
 
     Tokens* = Inputs[Token]
 
@@ -50,7 +51,7 @@ proc isFloat(txt: string): bool =
 
     return true
 
-proc eat(file: FileStream) : Token =
+proc eat(file: FileStream) : (TokenKind, string) =
     let chr = file.read()
 
     # reached end of file
@@ -78,27 +79,42 @@ proc eat(file: FileStream) : Token =
         return (IntLit, str)
 
     if isFloat(str) :
-        echo "ERROR floats arent suported yet"
+        # warn "floats arent suported yet"
         return (IntLit, str)
 
     return (Name, str)
 
 proc tokenize*(file: string): seq[Token] =
     var tokens = newSeq[Token]()
+    let lines = file.split("\n")
 
-    let stream = FileStream(
-        list  : file.toSeq,
-        index : 0,
-        final : eof
-    )
+    for i, line in lines: 
+        let stream = FileStream(
+            list  : line.toSeq,
+            index : 0,
+            final : eof
+        )
 
-    while true :
-        let token = stream.eat()
+        while true :
+            # get the start of the token
+            let start = stream.index
 
-        if token.kind == EOF :
-            break
+            # read the next token on the line
+            let (kind, body) = stream.eat()
 
-        if token.kind != Whitespace :
-            tokens.add( token )
+            # get the end of the token
+            let stop = stream.index
+
+            # weve reached the end of the line, lets stop
+            if kind == EOF : break
+
+            # if its whitepace then we can move on
+            if kind == Whitespace : continue
+
+            # the spot in the file with the token
+            let spot = ((i, start), (i, stop))
+
+            # add the token to are list of tokens
+            tokens.add( (kind, body, spot) )
 
     return tokens
