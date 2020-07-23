@@ -69,13 +69,16 @@ converter toString*(a: ValueNode): string =
         for param in a.params :
             txt &= param.name & "(" & param.kind.toString() & ")" & " "
         txt &= "-> " & a.ret.toString()
-        txt &= "\n"  & a.value.toString().tab()
+        txt &= "\n"  & a.output.toString().tab()
 
     return txt
 
 #
 
 proc fits(a: Type, b: Type): bool =
+    # if either are errors, dont do more errors
+    if a.base == "fault" or b.base == "fault" : return true
+
     # make sure they have the same base type
     if a.base != b.base : return false
 
@@ -96,22 +99,9 @@ proc get(scope: Scope, name: Token): Var =
     if scope.prev != nil :
         return scope.prev.get(name)
 
-    fail name.spot, "undefined variable"
+    fail name, &"'{name.body}' is not defined"
 
     return Var(kind: Type(base: "fault"))
-
-proc spot(value: ValueNode): Spot =
-    case value.kind :
-    of MakeFunc :
-        return ((0,0),(0,0))
-    of CallFunc :
-        return ((0,0),(0,0))
-    of Variable :
-        return ((0,0),(0,0))
-    of StrValue :
-        return ((0,0),(0,0))
-    of IntValue :
-        return ((0,0),(0,0))
 
 proc getVar(value: ValueNode, scope: Scope): Var =
     case value.kind :
@@ -140,11 +130,11 @@ proc getVar(value: ValueNode, scope: Scope): Var =
         kind.args.add( ret )
 
         # get the type that is being returned by the function
-        let output = getVar(value.value, funcScope)
+        let output = getVar(value.output, funcScope)
 
         # if the declared return type and real return type dont match, error
         if not output.kind.fits(ret) :
-            fail value.ret.spot, "real return type does not match declared return type!"
+            fail value.ret, "real return type does not match declared return type!"
 
         return Var(kind: kind)
     of CallFunc :
@@ -155,13 +145,13 @@ proc getVar(value: ValueNode, scope: Scope): Var =
         let params = fn.kind.args[0..^2]
 
         # check if they have the same number of arguments
-        # if value.args.len != params.len :
-        #     fail &"expected {params.len} arguments, got {value.args.len}"
+        if value.args.len != params.len :
+            fail value, &"expected {params.len} arguments, got {value.args.len}"
 
         # make sure the args are all of the right type
-        # for i in 0..<min(value.args.len, params.len):
-        #     if not getVar(value.args[i], scope).kind.fits( params[i] ) :
-        #         fail "wrong paramater type"
+        for i in 0..<min(value.args.len, params.len):
+            if not getVar(value.args[i], scope).kind.fits( params[i] ) :
+                fail value.args[i], "wrong paramater type"
 
         return Var(kind: fn.kind.args[^1])
     of Variable :

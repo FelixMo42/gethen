@@ -1,7 +1,7 @@
 import sequtils
 import strutils
 import ../../gen/stream
-import ../report
+# import ../report
 
 const eof = '\x00'
 

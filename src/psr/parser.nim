@@ -8,6 +8,7 @@ type
     ParamNode* = ref object
         name* : string
         kind* : ValueNode
+        spot* : Spot
 
     ValueKind* = enum 
         MakeFunc
@@ -18,10 +19,11 @@ type
         IntValue
 
     ValueNode* = ref object
+        spot* : Spot
         case kind* : ValueKind
         of MakeFunc :
             params* : seq[ParamNode]
-            value*  : ValueNode
+            output* : ValueNode
             ret*    : ValueNode
         of CallFunc :
             fn* : ValueNode
@@ -35,8 +37,10 @@ type
 
 #        
 
-converter toString*(token: Token): string =
-    return token.body
+
+converter toSpot*(token: Token): Spot = token.spot
+converter toSpot*(node: ValueNode): Spot = node.spot
+converter toString*(token: Token): string = token.body
 
 proc next*(inputs: Tokens, body: string): Option[Token] =
     let input = inputs.peek()
@@ -77,7 +81,7 @@ proc paramRule(tokens: Tokens): Option[ParamNode] =
 proc valueRule(tokens: Tokens): Option[ValueNode] =
     var save = tokens.save()
 
-    if tokens.next("(") :
+    if a := tokens.next("(") :
         if tokens.next("[") :
             let params = tokens.loop(paramRule)
             if tokens.next("]") :
@@ -85,10 +89,11 @@ proc valueRule(tokens: Tokens): Option[ValueNode] =
                     if tokens.next(")") :
                         if value := tokens.next(valueRule) :
                             return some(ValueNode(
-                                kind  : MakeFunc,
+                                kind   : MakeFunc,
                                 params : params.get,
-                                value  : value.get,
-                                ret    : ret.get
+                                output : value.get,
+                                ret    : ret.get,
+                                spot   : (a.get.spot[0], value.get.spot[1])
                             ))
     
     tokens.load(save)
@@ -100,15 +105,17 @@ proc valueRule(tokens: Tokens): Option[ValueNode] =
                 return some(ValueNode(
                     kind : CallFunc,
                     fn : b.get,
-                    args : c.get
+                    args : c.get,
+                    spot : (a.get.spot[0], d.get.spot[1])
                 ))
     
     tokens.load(save)
 
     if a := tokens.next(StrLit) :
         return some(ValueNode(
-            kind: StrValue,
-            strv: a.get.body,
+            kind : StrValue,
+            strv : a.get.body,
+            spot : a.get.spot
         ))
 
     if a := tokens.next(IntLit) :
@@ -118,21 +125,21 @@ proc valueRule(tokens: Tokens): Option[ValueNode] =
             return some(ValueNode(
                 kind: IntValue,
                 intv: num,
-                # spot: a.get.spot
+                spot: a.get.spot
             )) 
         else :
             fail a.get.spot, "int overflow!"
             return some(ValueNode(
                 kind: IntValue,
                 intv: 0,
-                # spot: a.get.spot
+                spot: a.get.spot
             )) 
 
     if a := tokens.next(Name) :
         return some(ValueNode(
             kind: Variable,
             name: a.get,
-            # spot: a.get.spot
+            spot: a.get.spot
         ))
     
     return none(ValueNode)
