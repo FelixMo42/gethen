@@ -1,6 +1,11 @@
 import validate
 
-discard validate( open("test.gth", fmRead).readAll() )
+let errs = validate( open("test.gth", fmRead).readAll() )
+
+echo "found ", errs.len, " errors"
+
+for err in errs :
+    echo err
 
 # const target = "py"
 

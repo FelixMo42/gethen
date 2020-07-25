@@ -57,15 +57,15 @@ proc onRequest(message: RequestMessage, rpc: Jsonrpc): JsonNode =
         return initializeResult(name, version, %* {
             "textDocumentSync" : {
                 "openClose" : true,
-                "change" : 2
+                "change" : 1 #2
             },
-            "completionProvider" : {
-                "triggerCharacters" : [" ", "."],
-                "allCommitCharacters" : ["."],
+            # "completionProvider" : {
+            #     "triggerCharacters" : [" ", "."],
+            #     "allCommitCharacters" : ["."],
 
-                "resolveProvider" : true,
-                "workDoneProgress" : false
-            },
+            #     "resolveProvider" : true,
+            #     "workDoneProgress" : false
+            # },
             "definitionProvider" : true,
             "hoverProvider" : true
         })

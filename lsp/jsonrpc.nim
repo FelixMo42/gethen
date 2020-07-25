@@ -105,9 +105,9 @@ proc runJsonrpc*(rpc: Jsonrpc) =
                 error "unknow message type " & $message
             
         except CatchableError:
-            error getCurrentException().name, getCurrentException().msg 
+            error getCurrentException().name, " ", getCurrentException().msg 
         except:
-            error getCurrentException().name, getCurrentException().msg
+            error getCurrentException().name, " ", getCurrentException().msg
 
         flushFile(logFile)
 
