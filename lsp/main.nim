@@ -1,12 +1,19 @@
 import logging
 import json
 import jsonrpc
-import nre
+
+import src/validate
+import src/reporter
 
 const name = "gethen lsp"
 const version = "0.0.0"
 
 info name & " v" & version
+
+converter toJson*(spot: ((int, int), (int, int))): JsonNode = %* {
+        "start" : { "line" : spot[0][0], "character" : spot[0][1]  },
+        "end"   : { "line" : spot[1][0], "character" : spot[1][1] }
+    }
 
 proc initializeResult(name, version: string, capabilities: JsonNode) : JsonNode = %* {
         "serverInfo" : {
@@ -16,44 +23,17 @@ proc initializeResult(name, version: string, capabilities: JsonNode) : JsonNode 
         "capabilities" : capabilities
     }
 
-proc initializeResult(capabilities: JsonNode) : JsonNode = initializeResult(name, version, capabilities)
-
-iterator forAll(lines: seq[string], reg: Regex): JsonNode =
-    for i , line in lines:
-        var index = 0
-
-        while true:
-            let match = line.find(reg, index)
-
-            if match.isNone:
-                break
-
-            let bounds = match.get.matchBounds
-            
-            index = bounds.b + 1
-
-            yield %* {
-                "start" : {
-                    "line" : i,
-                    "character" : bounds.a
-                },
-                "end" : {
-                    "line" : i,
-                    "character" : bounds.b + 1
-                }
-            }
-
 proc validateDocument(uri: string, version: int, text: string, rpc: Jsonrpc) =
-    let lines = text.split(re"\n")
-
+    let report = validate(text)
+    
     var diagnostics = newSeq[JsonNode]()
 
-    for range in lines.forAll( re"[0-9]+" ):
+    for diagnostic in report :
         diagnostics.add(%* {
-            "range" : range,
-            "severity" : 4,
-            "source" : "gethen lsp",
-            "message" : "is a number"
+            "source" : name,
+            "range" : diagnostic.spot.toJson(),
+            "severity" : diagnostic.lvl.toInt(),
+            "message" : diagnostic.txt
         })
 
     rpc.notify("textDocument/publishDiagnostics", %* {
@@ -61,7 +41,7 @@ proc validateDocument(uri: string, version: int, text: string, rpc: Jsonrpc) =
         "version" : version,
         "diagnostics" : diagnostics
     })
-
+    
 proc onRequest(message: RequestMessage, rpc: Jsonrpc): JsonNode =
     case message.action:
 
@@ -74,7 +54,7 @@ proc onRequest(message: RequestMessage, rpc: Jsonrpc): JsonNode =
         info "server initializing"
         info "root file " & message.params["rootUri"].getStr()
 
-        return initializeResult(%* {
+        return initializeResult(name, version, %* {
             "textDocumentSync" : {
                 "openClose" : true,
                 "change" : 2

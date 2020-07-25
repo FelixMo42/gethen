@@ -1,7 +1,7 @@
 import options
 import parseutils
 import gen/stream
-import src/report
+import src/reporter
 import tokens
 
 type
@@ -74,13 +74,11 @@ proc paramRule(tokens: Tokens): Option[ParamNode] =
             return some(ParamNode(
                 name : name.get,
                 kind : kind.get,
-                # spot : 
+                spot : (kind.get.spot[0], name.get.spot[1])
             ))
     return none(ParamNode)
 
-proc valueRule(tokens: Tokens): Option[ValueNode] =
-    var save = tokens.save()
-
+proc makeFuncRule(tokens: Tokens): Option[ValueNode] =
     if a := tokens.next("(") :
         if tokens.next("[") :
             let params = tokens.loop(paramRule)
@@ -95,9 +93,8 @@ proc valueRule(tokens: Tokens): Option[ValueNode] =
                                 ret    : ret.get,
                                 spot   : (a.get.spot[0], value.get.spot[1])
                             ))
-    
-    tokens.load(save)
 
+proc callFuncRule(tokens: Tokens): Option[ValueNode] =
     if a := tokens.next("(") :
         if b := tokens.next(valueRule) :
             let c = tokens.loop(valueRule)
@@ -108,8 +105,15 @@ proc valueRule(tokens: Tokens): Option[ValueNode] =
                     args : c.get,
                     spot : (a.get.spot[0], d.get.spot[1])
                 ))
-    
-    tokens.load(save)
+
+proc valueRule(tokens: Tokens): Option[ValueNode] =
+    var save = tokens.save()
+
+    if node := tokens.next(makeFuncRule):
+        return node
+
+    if node := tokens.next(callFuncRule):
+        return node
 
     if a := tokens.next(StrLit) :
         return some(ValueNode(

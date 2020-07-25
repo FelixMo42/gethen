@@ -2,6 +2,7 @@ import streams
 import strutils
 import parseutils
 import json
+# import logging
 
 type
     BaseProtocolError* = object of ValueError
