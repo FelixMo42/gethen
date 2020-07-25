@@ -2,7 +2,7 @@ import streams
 import strutils
 import parseutils
 import json
-# import logging
+import logging
 
 type
     BaseProtocolError* = object of ValueError
@@ -14,8 +14,10 @@ proc skipWhitespace(x: string, pos: int): int =
     while result < x.len and x[result] in Whitespace:
         inc result
 
+let test = newFileStream("/home/Felix/Documents/gethen/test.log", fmWrite)
+
 proc sendFrame*(s: Stream, frame: string) =
-    s.write "Content-Length: " & $frame.len & "\r\n\r\n" & frame
+    s.write("Content-Length: " & $frame.len & "\r\n\r\n" & frame)
     s.flush()
 
 proc readFrame*(s: Stream): TaintedString =

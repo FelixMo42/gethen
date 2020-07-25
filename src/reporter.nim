@@ -4,7 +4,7 @@ const
     ansiReset = "\e[0m"
     ansiBold  = "\e[1m"
 
-const shouldLog = true
+const shouldLog = false
 
 type
     LogLevel = enum

@@ -48,6 +48,8 @@ proc notify*(rpc: Jsonrpc, action: string, params: JsonNode) =
         "params" : params
     })
 
+    # discard
+
 proc request*(rpc: Jsonrpc, action: string, params: JsonNode, onResponse: OnResponse) =
     rpc.outs.sendJson(%* {
         "jsonrpc" : "2.0",
