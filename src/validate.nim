@@ -1,7 +1,7 @@
 import tables
 # import sequtils
 # import strutils
-import strformat
+# import strformat
 import psr/parser
 import psr/tokens
 import reporter
@@ -54,14 +54,14 @@ proc fits(a: Type, b: Type): bool =
 
     return true
 
-proc get(scope: Scope, name: Token): Var =
-    if scope.vars.hasKey(name) :
-        return scope.vars[name]
+proc get(scope: Scope, name: Token) : Var =
+    if scope.vars.hasKey(name.body) :
+        return scope.vars[name.body]
 
     if scope.prev != nil :
         return scope.prev.get(name)
 
-    fail name, &"variable '{name.body}' is not defined"
+    # fail name.spot, &"variable '{name.body}' is not defined"
 
     return Var(kind: Type(base: "fault"))
 
@@ -71,8 +71,8 @@ proc getVar(value: ValueNode, scope: Scope): Var =
         var kind = Type(base: "fn", args: @[])
 
         let funcScope = Scope(
-            vars: newTable[string, Var](),
-            prev: scope
+            vars : newTable[string, Var](),
+            prev : scope
         )
 
         for param in value.params :
@@ -83,7 +83,7 @@ proc getVar(value: ValueNode, scope: Scope): Var =
             kind.args.add( getVar(param.kind, scope).kind )
 
             # add the paramater to the scope
-            funcScope.vars[param.name] = Var(kind: paramKind)
+            funcScope.vars[param.name.body] = Var(kind: paramKind)
 
         # get the return type of the function
         let ret = getVar(value.ret, scope).kind
@@ -96,9 +96,11 @@ proc getVar(value: ValueNode, scope: Scope): Var =
 
         # if the declared return type and real return type dont match, error
         if not output.kind.fits(ret) :
-            fail value.ret, "real return type does not match declared return type!"
+            discard
+            # fail value.ret, "real return type does not match declared return type!"
 
         return Var(kind: kind)
+
     of CallFunc :
         # get the function were calling
         let fn = getVar(value.fn, scope)
@@ -108,18 +110,23 @@ proc getVar(value: ValueNode, scope: Scope): Var =
 
         # check if they have the same number of arguments
         if value.args.len != params.len :
-            fail value, &"expected {params.len} arguments, got {value.args.len}"
+            # fail value, &"expected {params.len} arguments, got {value.args.len}"
+            discard
 
         # make sure the args are all of the right type
         for i in 0..<min(value.args.len, params.len):
             if not getVar(value.args[i], scope).kind.fits( params[i] ) :
-                fail value.args[i], "wrong paramater type"
+                # fail value.args[i], "wrong paramater type"
+                discard
 
         return Var(kind: fn.kind.args[^1])
+    
     of Variable :
         return scope.get(value.name)
+    
     of StrValue :
         return Var(kind: Type(base: "i32"))
+
     of IntValue :
         return Var(kind: Type(base: "i32"))
 

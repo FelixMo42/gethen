@@ -13,8 +13,6 @@ proc skipWhitespace(x: string, pos: int): int =
     while result < x.len and x[result] in Whitespace:
         inc result
 
-let test = newFileStream("/home/Felix/Documents/gethen/test.log", fmWrite)
-
 proc sendFrame*(s: Stream, frame: string) =
     s.write("Content-Length: " & $frame.len & "\r\n\r\n" & frame)
     s.flush()

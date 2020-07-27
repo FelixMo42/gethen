@@ -42,7 +42,7 @@ proc validateDocument(uri: string, version: int, text: string, rpc: Jsonrpc) =
         "diagnostics" : diagnostics
     })
     
-proc onRequest(message: RequestMessage, rpc: Jsonrpc): JsonNode =
+proc onRequest(message: RequestMessage, rpc: Jsonrpc) substr: JsonNode =
     case message.action:
     of "shutdown":
         info "server shutting down"

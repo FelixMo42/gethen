@@ -1,14 +1,13 @@
 import options
-import parseutils
 import gen/stream
-import src/reporter
+import position
 import tokens
 
 type
     ParamNode* = ref object
-        name* : string
+        name* : Token
         kind* : ValueNode
-        spot* : Spot
+        spot* : Position
 
     ValueKind* = enum 
         MakeFunc
@@ -18,7 +17,7 @@ type
         IntValue
 
     ValueNode* = ref object
-        spot* : Spot
+        spot* : Position
         case kind* : ValueKind
         of MakeFunc :
             params* : seq[ParamNode]
@@ -29,17 +28,15 @@ type
             args* : seq[ValueNode]
         of Variable :
             name* : Token
-        of StrValue :
-            strv* : string
-        of IntValue :
-            intv* : int
+        of StrValue , IntValue :
+            value* : string
 
-#        
+    Tokens = Inputs[Token]
 
+#
 
-converter toSpot*(token: Token): Spot = token.spot
-converter toSpot*(node: ValueNode): Spot = node.spot
-converter toString*(token: Token): string = token.body
+converter toSpot*(token: Token): Position = token.spot
+converter toSpot*(node: ValueNode): Position = node.spot
 
 proc next*(inputs: Tokens, body: string): Option[Token] =
     let input = inputs.peek()
@@ -107,52 +104,41 @@ proc callFuncRule(tokens: Tokens): Option[ValueNode] =
 proc valueRule(tokens: Tokens): Option[ValueNode] =
     var save = tokens.save()
 
-    if node := tokens.next(makeFuncRule):
+    if node := tokens.next(makeFuncRule) :
         return node
 
-    if node := tokens.next(callFuncRule):
+    if node := tokens.next(callFuncRule) :
         return node
 
-    if a := tokens.next(StrLit) :
+    if token := tokens.next(StrLit) :
         return some(ValueNode(
             kind : StrValue,
-            strv : a.get.body,
-            spot : a.get.spot
+            value : token.get.body,
+            spot : token.get.spot
         ))
 
-    if a := tokens.next(IntLit) :
-        var num : int
-        let res = parseInt(a.get.body, num)
-        if res != 0 :
-            return some(ValueNode(
-                kind : IntValue,
-                intv : num,
-                spot : a.get.spot
-            )) 
-        else :
-            fail a.get.spot, "int overflow!"
-            return some(ValueNode(
-                kind : IntValue,
-                intv : 0,
-                spot : a.get.spot
-            )) 
+    if token := tokens.next(NumLit) :
+        return some(ValueNode(
+            kind : IntValue,
+            value : token.get.body,
+            spot : token.get.spot
+        ))
 
-    if a := tokens.next(Name) :
+    if token := tokens.next(Name) :
         return some(ValueNode(
             kind : Variable,
-            name : a.get,
-            spot : a.get.spot
+            name : token.get,
+            spot : token.get.spot
         ))
 
 proc fileRule(tokens: Tokens): Option[ValueNode] =
     if a := tokens.next(valueRule) :
-        if tokens.next(EOF) :
+        # if tokens.next(EOF) :
             return some(a.get)
 
 proc parse*(tokens: seq[Token]): ValueNode = 
     return fileRule(Tokens(
         list  : tokens,
-        final : (EOF, "EOF", ((0,0), (0,0))),
         index : 0
     )).get
 

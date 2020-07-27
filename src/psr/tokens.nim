@@ -1,120 +1,88 @@
-import sequtils
 import strutils
-import gen/stream
-# import src/report
+import position
+import streams
 
 const eof = '\x00'
 
 let keywords = @['(', ')', '[', ']',':']
-let whitespace = @[' ', '\t', '\r', '\n']
-let taken = @[eof, '\'', '"'] & keywords & whitespace
+let whitespace = @[' ', '\t']
+let newlines = @['\r','\n']
+let taken = @[eof, '\'', '"'] & keywords & whitespace & newlines
 
 type
-    Pos* = (int, int)
-    Spot* = (Pos, Pos)
-
     TokenKind* = enum
         Name
         KeyWord
-        Whitespace
-        
-        StrLit
-        IntLit
 
-        EOF
+        StrLit
+        NumLit
 
     Token* = tuple
         kind : TokenKind
         body : string
-        spot : Spot
+        spot : Position
 
-    Tokens* = Inputs[Token]
+proc skipChar(stream: StringStream) =
+    discard stream.readChar()
 
-    FileStream = Inputs[char]
+proc readUntil(file: StringStream, puncuation: seq[char]) : int =
+    var length = 0
 
-proc isInt(txt: string): bool =
-    for c in txt:
-        if not c.isDigit() :
-            return false
-    return true
+    let start = file.getPosition()
 
-proc isFloat(txt: string): bool =
-    var hasDot = false
-    for c in txt:
-        if c == '.' :
-            if hasDot :
-                return false
-            else :
-                hasDot = true 
-        elif not c.isDigit() :
-            return false
+    while file.peekChar() notin puncuation and not file.atEnd() :
+        file.skipChar()
+        length += 1
 
-    return true
+    file.setPosition(start)
 
-proc eat(file: FileStream) : (TokenKind, string) =
-    let chr = file.read()
-
-    # reached end of file
-    if chr == eof : return (EOF, "")
-
-    # this is specal punctuation
-    if chr in keywords : return (KeyWord, chr & "")
-
-    # start of a string
-    if chr == '\'' :
-        var str = "\""
-        while file.peek() != '\'' :
-            str = str & file.read()
-        file.skip()
-        return (StrLit, str & "\"")
-
-    # just some boring whitespace
-    if chr in whitespace : return (Whitespace, "")
+    return length
     
-    var str = chr & ""
-    while not (file.peek() in taken):
-        str = str & file.read()
+proc eat(file: StringStream) : (TokenKind, string) =
+    if file.peekChar() in keywords : return (KeyWord, file.readStr(1))
 
-    if isInt(str) :
-        return (IntLit, str)
+    if file.peekChar() == '\"' :
+        var stringLength = 1 + file.readUntil(@[ '\"' ]) + 1
+        
+        return (StrLit, file.readStr(stringLength))
 
-    if isFloat(str) :
-        # warn "floats arent suported yet"
-        return (IntLit, str)
+    var len = file.readUntil(taken)
 
-    return (Name, str)
+    var text = file.readStr(len)
+
+    if text[0].isDigit() : return (NumLit, text)
+
+    return (Name, text)
 
 proc tokenize*(file: string): seq[Token] =
     var tokens = newSeq[Token]()
-    let lines = file.split("\n")
+    let stream = newStringStream(file)
 
-    for i, line in lines: 
-        let stream = FileStream(
-            list  : line.toSeq,
-            index : 0,
-            final : eof
-        )
+    var position = newPosition()
 
-        while true :
-            # get the start of the token
-            let start = stream.index
+    while true :
+        # if were at a new line skip it and set are position
+        if stream.peekChar() in newlines :
+            position = position.nextLine()
+            stream.skipChar()
+            continue
 
-            # read the next token on the line
-            let (kind, body) = stream.eat()
+        # skip over whitespace
+        if stream.peekChar() in whitespace :
+            position = position.nextChar()
+            stream.skipChar()
+            continue
 
-            # get the end of the token
-            let stop = stream.index
+        # we've reached the end of the file, lets stop
+        if stream.atEnd() : break
 
-            # weve reached the end of the line, lets stop
-            if kind == EOF : break
+        # read the next token on the line
+        let (kind, text) = stream.eat()
 
-            # if its whitepace then we can move on
-            if kind == Whitespace : continue
+        # add the token to are list of tokens
+        tokens.add( (kind, text, position) )
 
-            # the spot in the file with the token
-            let spot = ((i, start), (i, stop))
-
-            # add the token to are list of tokens
-            tokens.add( (kind, body, spot) )
+        # skip over the contents of symbol
+        position = position + text.len
 
     return tokens
