@@ -14,7 +14,6 @@ type
         MakeFunc
         CallFunc
         Variable
-
         StrValue
         IntValue
 
@@ -76,7 +75,6 @@ proc paramRule(tokens: Tokens): Option[ParamNode] =
                 kind : kind.get,
                 spot : (kind.get.spot[0], name.get.spot[1])
             ))
-    return none(ParamNode)
 
 proc makeFuncRule(tokens: Tokens): Option[ValueNode] =
     if a := tokens.next("(") :
@@ -101,7 +99,7 @@ proc callFuncRule(tokens: Tokens): Option[ValueNode] =
             if d := tokens.next(")") :
                 return some(ValueNode(
                     kind : CallFunc,
-                    fn : b.get,
+                    fn   : b.get,
                     args : c.get,
                     spot : (a.get.spot[0], d.get.spot[1])
                 ))
@@ -127,32 +125,29 @@ proc valueRule(tokens: Tokens): Option[ValueNode] =
         let res = parseInt(a.get.body, num)
         if res != 0 :
             return some(ValueNode(
-                kind: IntValue,
-                intv: num,
-                spot: a.get.spot
+                kind : IntValue,
+                intv : num,
+                spot : a.get.spot
             )) 
         else :
             fail a.get.spot, "int overflow!"
             return some(ValueNode(
-                kind: IntValue,
-                intv: 0,
-                spot: a.get.spot
+                kind : IntValue,
+                intv : 0,
+                spot : a.get.spot
             )) 
 
     if a := tokens.next(Name) :
         return some(ValueNode(
-            kind: Variable,
-            name: a.get,
-            spot: a.get.spot
+            kind : Variable,
+            name : a.get,
+            spot : a.get.spot
         ))
-    
-    return none(ValueNode)
 
 proc fileRule(tokens: Tokens): Option[ValueNode] =
     if a := tokens.next(valueRule) :
         if tokens.next(EOF) :
             return some(a.get)
-    return none(ValueNode)
 
 proc parse*(tokens: seq[Token]): ValueNode = 
     return fileRule(Tokens(

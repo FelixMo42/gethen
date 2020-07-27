@@ -18,8 +18,6 @@ type
         vars : TableRef[string, Var]
         prev : Scope
 
-    # InheritanceTree = TableRef[string, seq[string]]
-
 # some basic value types
 
 let inheritanceTree = newTable[string, seq[string]]()
@@ -32,12 +30,9 @@ proc newType(base: string, parents: seq[string]=newSeq[string]()): Type =
 let i64* = newType("i64")
 let i32* = newType("i32")
 let i16* = newType("i16")
-
 let f64* = newType("i32")
 let f32* = newType("i32")
-
 let str* = newType("str")
-
 let arr* = newType("arr")
 
 #

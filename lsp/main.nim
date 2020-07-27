@@ -44,7 +44,6 @@ proc validateDocument(uri: string, version: int, text: string, rpc: Jsonrpc) =
     
 proc onRequest(message: RequestMessage, rpc: Jsonrpc): JsonNode =
     case message.action:
-
     of "shutdown":
         info "server shutting down"
 
@@ -57,18 +56,21 @@ proc onRequest(message: RequestMessage, rpc: Jsonrpc): JsonNode =
         return initializeResult(name, version, %* {
             "textDocumentSync" : {
                 "openClose" : true,
-                "change" : 1 #2
+                "change" : 1
             },
-            # "completionProvider" : {
-            #     "triggerCharacters" : [" ", "."],
-            #     "allCommitCharacters" : ["."],
 
-            #     "resolveProvider" : true,
-            #     "workDoneProgress" : false
-            # },
-            "definitionProvider" : true,
-            "hoverProvider" : true
+            "completionProvider" : {
+                "triggerCharacters" : ["(", "["],
+                "allCommitCharacters" : ["(", ")", "[", "]"],
+                "resolveProvider" : true
+            }
+
+            # "documentSymbolProvider" : true,
+            # "windowSymbolProvider" : true
         })
+
+    of "textDocument/completion" :
+        return %* nil
 
     else:
         error "unhandled request " & message.action

@@ -1,4 +1,5 @@
 import strformat
+import src/position
 
 const
     ansiReset = "\e[0m"
@@ -12,7 +13,7 @@ type
         WARN = ansiBold & "\e[33mWARN\e[0m " & ansiReset
         INFO = ansiBold & "\e[36mINFO\e[0m " & ansiReset
 
-    Spot = ((int, int), (int, int))
+    Spot = (Position, Position)
 
     ReportElement* = tuple
         lvl  : LogLevel
@@ -31,8 +32,8 @@ converter toInt*(lv: LogLevel): int =
 
 proc link(spot: Spot): string =
     let file = "./test.gth"
-    let line = spot[0][0] + 1
-    let colm = spot[0][1] + 1
+    let line = spot[0].line + 1
+    let colm = spot[0].colm + 1
     return &"{ansiBold}{file}({line}, {colm}){ansiReset} "
 
 # 
