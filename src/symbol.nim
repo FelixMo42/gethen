@@ -5,8 +5,9 @@ type
         KeyWord
         Variable
         
-        NumLit
-        StrLit
+        StringLit
+        NumberLit
+        BooleanLit
         
     Symbol = object
         text : string
@@ -17,6 +18,17 @@ type
     Scope = ref object
         range : (Position, Position)
         symbols : seq[Symbol]
+
+    NodeKind = enum a, b
+
+    Node = ref object
+        kind : NodeKind
+        text : string
+        children : seq[Node]
+        scope : Node
+        blame : Position
+
+# hygienic
 
 proc `in`(position: Position, scope: Scope) : bool =
     return

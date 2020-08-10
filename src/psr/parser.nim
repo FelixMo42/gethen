@@ -14,7 +14,7 @@ type
         CallFunc
         Variable
         StrValue
-        IntValue
+        NumValue
 
     ValueNode* = ref object
         spot* : Position
@@ -28,7 +28,7 @@ type
             args* : seq[ValueNode]
         of Variable :
             name* : Token
-        of StrValue , IntValue :
+        of StrValue , NumValue :
             value* : string
 
     Tokens = Inputs[Token]
@@ -112,16 +112,16 @@ proc valueRule(tokens: Tokens): Option[ValueNode] =
 
     if token := tokens.next(StrLit) :
         return some(ValueNode(
-            kind : StrValue,
+            kind  : StrValue,
             value : token.get.body,
-            spot : token.get.spot
+            spot  : token.get.spot
         ))
 
     if token := tokens.next(NumLit) :
         return some(ValueNode(
-            kind : IntValue,
+            kind  : NumValue,
             value : token.get.body,
-            spot : token.get.spot
+            spot  : token.get.spot
         ))
 
     if token := tokens.next(Name) :
@@ -134,7 +134,7 @@ proc valueRule(tokens: Tokens): Option[ValueNode] =
 proc fileRule(tokens: Tokens): Option[ValueNode] =
     if a := tokens.next(valueRule) :
         # if tokens.next(EOF) :
-            return some(a.get)
+        return some(a.get)
 
 proc parse*(tokens: seq[Token]): ValueNode = 
     return fileRule(Tokens(

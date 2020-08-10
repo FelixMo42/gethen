@@ -1,5 +1,6 @@
 import strutils
 import position
+import src/symbol2
 import streams
 
 const eof = '\x00'
@@ -8,19 +9,6 @@ const keywords = @['(', ')', '[', ']',':']
 const whitespace = @[' ', '\t']
 const newlines = @['\r','\n']
 const taken = @[eof, '\'', '"'] & keywords & whitespace & newlines
-
-type
-    TokenKind* = enum
-        Name
-        KeyWord
-
-        StrLit
-        NumLit
-
-    Token* = tuple
-        kind : TokenKind
-        body : string
-        spot : Position
 
 proc skipChar(stream: StringStream) =
     discard stream.readChar()
@@ -38,24 +26,24 @@ proc readUntil(file: StringStream, puncuation: seq[char]) : int =
 
     return length
     
-proc eat(file: StringStream) : (TokenKind, string) =
+proc eat(file: StringStream) : (SymbolKind, string) =
     if file.peekChar() in keywords : return (KeyWord, file.readStr(1))
 
     if file.peekChar() == '\"' :
         var stringLength = 1 + file.readUntil(@[ '\"' ]) + 1
         
-        return (StrLit, file.readStr(stringLength))
+        return (StringLit, file.readStr(stringLength))
 
     var len = file.readUntil(taken)
 
     var text = file.readStr(len)
 
-    if text[0].isDigit() : return (NumLit, text)
+    if text[0].isDigit() : return (NumberLit, text)
 
-    return (Name, text)
+    return (Variable, text)
 
-proc tokenize*(file: string): seq[Token] =
-    var tokens = newSeq[Token]()
+proc tokenize*(file: string): seq[Symbol] =
+    var tokens = newSeq[Symbol]()
     let stream = newStringStream(file)
 
     var position = newPosition()
@@ -80,7 +68,7 @@ proc tokenize*(file: string): seq[Token] =
         let (kind, text) = stream.eat()
 
         # add the token to are list of tokens
-        tokens.add( (kind, text, position) )
+        tokens.add( newSymbol(kind, text, position) )
 
         # skip over the contents of symbol
         position = position + text.len
